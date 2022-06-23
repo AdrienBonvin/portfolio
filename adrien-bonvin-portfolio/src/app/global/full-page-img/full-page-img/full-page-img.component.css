@@ -1,0 +1,149 @@
+/** Image préface */
+  .container-main-img {
+
+    margin: 0 auto;
+    overflow:hidden;
+  }
+
+  .container-main-img img {
+    position: relative;
+    width:100%;
+    object-fit: cover;
+    object-position: 100% 5%;
+    filter: brightness(100%);
+    padding:0;
+    margin:0;
+  }
+          @media (max-width: 1800px) {
+            .container-main-img img {
+              object-position: 72% 5%;
+            }
+          }
+
+
+  h1, h2 {
+    margin: 0 6%;
+    padding:0;
+    text-shadow: 0 0.2rem 0.2rem rgb(0 0 0 / 20%);
+    position:absolute;
+    font-weight: bolder;
+    color: rgb(255, 255, 255);
+  }
+          @media (max-width: 1000px) {
+            h1, h2 {
+              margin: 0;
+              width: 100%;
+              text-align: center;
+            }
+          }
+
+  .container-main-img h1 {
+    top: 20%;
+    font-size: 120px;
+  }
+            @media (max-width: 1000px) {
+              .container-main-img h1 {
+                font-size: 12vw;
+              }
+            }
+            @media (min-width: 2000px) {
+              .container-main-img h1 {
+                font-size: 6vw;
+              }
+            }
+
+  .container-main-img h2 {
+    top: 40%;
+    font-size: 50px;
+  }
+            @media (max-width: 600px) {
+              .container-main-img h2 {
+                font-size: 8vw;
+              }
+            }
+            @media (min-width: 2000px) {
+              .container-main-img h2 {
+                font-size: 2.5vw;
+              }
+            }
+
+  .website, .app, .hamburger {
+    left: 435px;
+    font-size: 50px;
+  }
+          @media (max-width: 1000px) {
+            .website, .app, .hamburger {
+              padding-top:100px;
+              left: 0;
+              font-size: 5vw;
+            }
+          }
+          @media (min-width: 2000px) {
+            .website, .app, .hamburger {
+              left: 21.7vw;
+              font-size: 2.5vw;
+            }
+          }
+
+  .container-main-img h2.website{
+    top: 40%;
+    text-decoration: line-through;
+    opacity: 80%;
+  }
+
+  .container-main-img h2.hamburger{
+    top: 47%;
+    color: #ae4300;
+  }
+
+  .hamburger {
+    animation: hoverAnimationOut 0.2s forwards normal;
+  }
+  .hamburger:hover {
+    animation: hoverAnimationIn 0.2s forwards normal;
+    cursor: pointer;
+  }
+
+  button {
+    position: absolute;
+    top:70%;
+    left:15%;
+    width:auto;
+    height:auto;
+    padding: 2% 3%;
+    background-color: #ae4300;
+    border: #ae4300;
+    border-radius: 5px;
+    font-weight: bolder;
+    font-size: 60px;
+    color: white;
+    cursor: pointer;
+    animation: hoverAnimationOut 0.2s forwards normal;
+  }
+  button:hover {
+    animation: hoverAnimationIn 0.2s forwards normal;
+    background-color: #662700;
+    transition-duration: 0.5s;
+  }
+
+  @keyframes hoverAnimationIn {
+    from {
+        /*Etat final*/
+        transform: scale(1);
+    }
+    to {
+        /*Etat initial*/
+        transform: scale(1.1);
+    }
+  }
+  @keyframes hoverAnimationOut {
+    from {
+        /*Etat final*/
+        transform: scale(1.1);
+    }
+    to {
+        /*Etat initial*/
+        transform: scale(1);
+    }
+  }
+

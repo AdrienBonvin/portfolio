@@ -1,0 +1,79 @@
+.container-header {
+  position: fixed;
+  height: 120px;
+  width: 100%;
+  z-index: 1;
+}
+
+.logo {
+  position:absolute;
+  left:10%;
+  top:40px;
+  width:180px;
+  cursor: pointer;
+  animation: hoverAnimationOut 0.2s forwards normal;
+}
+    @media (max-width: 1000px) {
+      .logo {
+        width: 18vw;
+        min-width: 100px;
+        top:4vw;
+      }
+    }
+    @media (min-width: 2000px) {
+      .logo {
+        width:9vw;
+      }
+    }
+.logo:hover {
+  animation: hoverAnimationIn 0.2s forwards normal;
+}
+
+
+.about {
+  position:absolute;
+  text-decoration: none;
+  top:50px;
+  right:10%;
+  font-size: 25px;
+  font-family: Inter, sans-serif;
+  animation: hoverAnimationOut 0.2s forwards normal;
+}
+    @media (max-width: 1000px) {
+      .about {
+        font-size: 2.5vw;
+        top:5vw;
+      }
+    }
+    @media (min-width: 2000px) {
+      .about {
+        font-size: 1.25vw;
+      }
+    }
+.about:hover {
+  animation: hoverAnimationIn 0.2s forwards normal;
+}
+
+
+/*Animations*/
+@keyframes hoverAnimationIn {
+  from {
+      /*Etat final*/
+      transform: scale(1);
+  }
+  to {
+      /*Etat initial*/
+      transform: scale(1.1);
+  }
+}
+
+@keyframes hoverAnimationOut {
+  from {
+      /*Etat final*/
+      transform: scale(1.1);
+  }
+  to {
+      /*Etat initial*/
+      transform: scale(1);
+  }
+}

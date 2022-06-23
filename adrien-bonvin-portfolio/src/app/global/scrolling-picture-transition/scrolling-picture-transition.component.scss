@@ -1,0 +1,227 @@
+  .section {
+      height:10000px;
+      background-color: rgb(255, 254, 254);
+
+      .main-text{
+        position: sticky;
+        top: 30%;
+        width:40%;
+        padding:0% 30%;
+        text-align:center;
+        font-weight: bolder;
+        font-size: 4vw;
+      }
+      .hamburger-plein {
+          animation-delay: inherit;
+          position: sticky;
+          top: 40%;
+
+          .ingredient {
+            position: absolute;
+            width: 200px;
+            left: calc(50% - 100px);
+            top: 0px;
+          }
+          .animationBottomBun {
+            animation: bottomBun 0.5s linear reverse;
+            animation-play-state: paused;
+            animation-delay: 0.1s;
+          }
+          .animationSteak {
+            animation: steak 0.5s linear reverse;
+            animation-play-state: paused;
+            animation-delay: 0.1s;
+          }
+          .animationCheese {
+            animation: cheese 0.5s linear reverse;
+            animation-play-state: paused;
+            animation-delay: 0.1s;
+            width: 220px;
+          }
+          .animationPickles {
+            animation: pickles 0.5s linear reverse;
+            animation-play-state: paused;
+            animation-delay: 0.1s;
+            width: 100px;
+          }
+          .animationOignons {
+            animation: oignons 0.5s linear reverse;
+            animation-play-state: paused;
+            animation-delay: 0.1s;
+            width: 150px;
+          }
+          .animationSalad {
+            animation: salad 0.5s linear reverse;
+            animation-play-state: paused;
+            animation-delay: 0.1s;
+          }
+          .animationTopBun {
+            animation: topBun 0.5s linear reverse;
+            animation-play-state: paused;
+            animation-delay: 0.1s;
+            width: 220px;
+          }
+      }
+
+
+
+    .hamburger-eclate {
+      animation-delay: inherit;
+      position: sticky;
+      top: 40%;
+
+      .ingredient {
+        position: absolute;
+        width: 200px;
+      }
+      .animationBottomBun {
+        animation: bottomBun 0.5s linear normal;
+        animation-play-state: paused;
+        animation-delay: 0.0s;
+        left: calc(50% - 40%);
+        top: 300px;
+      }
+      .animationSteak {
+        animation: steak 0.5s linear normal;
+        animation-play-state: paused;
+        animation-delay: 0.1s;
+        left: calc(50% + 40% - 100px);
+        top: 300px;
+      }
+      .animationCheese {
+        animation: cheese 0.5s linear normal;
+        animation-play-state: paused;
+        animation-delay: 0.1s;
+        width: 220px;
+        left: calc(50% - 40% + 100px);
+        top: -200px;
+      }
+      .animationPickles {
+        animation: pickles 0.5s linear normal;
+        animation-play-state: paused;
+        animation-delay: 0.1s;
+        width: 100px;
+        left: calc(50% + 40%);
+        top: 200px;
+      }
+      .animationOignons {
+        animation: oignons 0.5s linear normal;
+        animation-play-state: paused;
+        animation-delay: 0.1s;
+        width: 150px;
+        left: calc(50% + 40% - 100px);
+        top: -100px;
+      }
+      .animationSalad {
+        animation: salad 0.5s linear normal;
+        animation-play-state: paused;
+        animation-delay: 0.1s;
+        left: calc(50% - 40%);
+        top: 200px;
+      }
+      .animationTopBun {
+        animation: topBun 0.5s linear normal;
+        animation-play-state: paused;
+        animation-delay: 0.1s;
+        width: 220px;
+        left: calc(50% + 40% - 100px);
+        top: 0px;
+      }
+  }
+}
+
+
+
+
+  /* ########## ANIMATIONS ########## */
+
+@keyframes bottomBun {
+  from {
+    /*Etat final*/
+    left: calc(50% - 40%);
+    top: 300px;
+}
+to {
+    /*Etat initial*/
+    left: calc(50% - 100px);
+    top: 0px;
+}
+}
+
+@keyframes steak {
+  from {
+      /*Etat final*/
+      left: calc(50% + 40% - 100px);
+      top: 300px;
+  }
+  to {
+      /*Etat initial*/
+      left: calc(50% - 100px);
+      top: 0px;
+  }
+}
+
+@keyframes cheese {
+  from {
+    /*Etat final*/
+    left: calc(50% - 40% + 100px);
+    top: -200px;
+  }
+  to {
+      /*Etat initial*/
+      left: calc(50% - 100px);
+      top: 0px;
+  }
+}
+
+@keyframes pickles {
+  from {
+    /*Etat final*/
+    left: calc(50% + 40%);
+    top: 200px;
+  }
+  to {
+      /*Etat initial*/
+      left: calc(50% - 100px);
+      top: 0px;
+  }
+}
+
+@keyframes oignons {
+  from {
+    /*Etat final*/
+    left: calc(50% + 40% - 100px);
+    top: -100px;
+  }
+  to {
+      /*Etat initial*/
+      left: calc(50% - 100px);
+      top: 0px;
+  }
+}
+
+@keyframes salad {
+  from {
+    /*Etat final*/
+    left: calc(50% - 40%);
+    top: 200px;
+  }
+  to {
+      /*Etat initial*/
+      left: calc(50% - 100px);
+      top: 0px;
+  }
+}
+
+@keyframes topBun {
+  from {
+    /*Etat final*/
+    left: calc(50% + 40% - 100px);
+    top: 0px;
+  }
+  to {
+      /*Etat initial*/
+      left: calc(50% - 100px);
+      top: 0px;
+  }
+}
