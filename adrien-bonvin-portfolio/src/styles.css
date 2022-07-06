@@ -10,3 +10,34 @@ html, body {
 * {
     font-family: Inter, sans-serif;
   }
+
+  /* Animation on every Hamburger wprd in the website */
+  .hamburger-text {
+    cursor: pointer;
+    animation: hoverAnimationOut 0.2s forwards normal;
+  }
+  .hamburger-text:hover {
+    animation: hoverAnimationIn 0.2s forwards normal;
+    cursor: pointer;
+  }
+
+  @keyframes hoverAnimationIn {
+    from {
+        /*Etat final*/
+        transform: scale(1);
+    }
+    to {
+        /*Etat initial*/
+        transform: scale(1.2);
+    }
+  }
+  @keyframes hoverAnimationOut {
+    from {
+        /*Etat final*/
+        transform: scale(1.2);
+    }
+    to {
+        /*Etat initial*/
+        transform: scale(1);
+    }
+  }

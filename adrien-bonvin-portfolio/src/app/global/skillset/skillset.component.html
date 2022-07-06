@@ -1,0 +1,74 @@
+<div class="container-work">
+  <div class="container-before-work">
+  <img class="plate" src="../../../assets/pictures/hamburger/plate.png">
+  <h1>Let's work together to build your very own<strong class="hamburger-text" (mouseover)="hamburger='Website'" (mouseleave)="hamburger='Hamburger'">{{hamburger}}</strong>.</h1>
+  </div>
+  <div class="container-about">
+    <div class="coin-quote" [ngClass]="{'coin-quote-animation':coinQuoteVisible, 'coin-quote-hidden': !coinQuoteVisible}"><p class="start-quote">Two sides from</p><p class="end-quote"> the same coin</p></div>
+    <div class="coin" [ngClass]="coinSide" (click)="flipCoin()" (mouseenter)="coinQuoteVisible=true"
+    (mouseleave)="coinQuoteVisible=false">:
+      <img class="about-img face-a"src="../../../assets/pictures/about/personal_photo.jpg">
+      <img class="about-img face-b"src="../../../assets/pictures/about/personal_photo.jpg">
+      <!-- Frontent tooltips -->
+      <div *ngIf="tooltipOpened==='angular'" class="logo-tooltip">
+        <p><strong>Angular</strong> is my favorite framework for webdeveloppement, helping keeping complex projects simple.</p>
+      </div>
+      <div *ngIf="tooltipOpened==='figma'" class="logo-tooltip">
+        <p><strong>Figma</strong> helps me build visuals for the website, making sure the final product will fulfill all your requirements.</p>
+      </div>
+      <div *ngIf="tooltipOpened==='illustrator'" class="logo-tooltip">
+        <p><strong>Illustrator</strong> is my weapon of choice for drawing brand logos and website illustrations, a passion of mine that quickly found it's place into my work.</p>
+      </div>
+      <div *ngIf="tooltipOpened==='typescript'" class="logo-tooltip">
+        <p>Superset of JavaScript, I found that the many advantages <strong>Typescript</strong> offers make it the best language you can hope for as a frontend developper.</p>
+      </div>
+      <!-- Backend tooltips -->
+      <div *ngIf="tooltipOpened==='java'" class="logo-tooltip">
+        <p><strong>Java</strong> allows me to add an incredible amount of depth and complexity to a website, it is a perfect combination of power, stability and security.</p>
+      </div>
+      <div *ngIf="tooltipOpened==='postgres'" class="logo-tooltip">
+        <p>Awarded "Database System Of The Year" several times, <strong>postgresql</strong> is a very reliable, stable and secure database, which is why I use it for my work.</p>
+      </div>
+      <div *ngIf="tooltipOpened==='spring'" class="logo-tooltip">
+        <p><strong>Spring</strong> makes programming in Java quicker, easier, and safer. It is a go to for me when it comes to backend developpement.</p>
+      </div>
+      <div *ngIf="tooltipOpened==='git'" class="logo-tooltip">
+        <p><strong>Git</strong> is a mandatory tool for every developper nowdays. Being able to version control applications is the closest you can get to having superpowers.</p>
+      </div>
+      <div *ngIf="tooltipOpened==='docker'" class="logo-tooltip">
+        <p><strong>Docker</strong> is without doubt one of the most ingenious tools created in programing, making sure the webapp built will run exactly the way it should, and making it easily deployable</p>
+      </div>
+    </div>
+    <div class="container-text">
+      <div class="frontend">
+        <div class="frontend-text">
+          <h2>Frontend developper</h2>
+          <h3>I can design and build webapplications and websites from scratch, bringing my knowlede in webdesign, ui/ux and performance to deliver responsive, beautiful and yet performant results.
+          </h3>
+        </div>
+        <div class="container-logo">
+          <img class="logo logo-angular" src="../../../assets/pictures/logo/angular.png" (click)="openToolTip('angular')">
+          <img class="logo" src="../../../assets/pictures/logo/figma.png" (click)="openToolTip('figma')">
+          <img class="logo" src="../../../assets/pictures/logo/adobe_illustrator.png" (click)="openToolTip('illustrator')">
+          <img class="logo" src="../../../assets/pictures/logo/typescript.png" (click)="openToolTip('typescript')">
+        </div>
+      </div>
+
+      <div class="backend">
+        <div class="backend-text">
+          <h2>Backend developper</h2>
+          <h3>I can create a backend to the website, greatly increasing it's complexity and functionnalities : storing data in a database, having user sessions and so much more.</h3>
+        </div>
+        <div class="container-logo">
+          <img class="logo" src="../../../assets/pictures/logo/java.png" (click)="openToolTip('java')">
+          <img class="logo" src="../../../assets/pictures/logo/postgresql.png" (click)="openToolTip('postgres')">
+          <img class="logo" src="../../../assets/pictures/logo/spring.png" (click)="openToolTip('spring')">
+          <img class="logo" src="../../../assets/pictures/logo/git.png" (click)="openToolTip('git')">
+          <img class="logo" src="../../../assets/pictures/logo/docker.png" (click)="openToolTip('docker')">
+        </div>
+      </div>
+
+
+    </div>
+  </div>
+</div>

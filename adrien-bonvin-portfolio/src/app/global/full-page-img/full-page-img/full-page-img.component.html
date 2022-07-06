@@ -1,9 +1,7 @@
-<div class="container-main-img" [ngStyle]="{'height': tailleEcran}">
-  <img src="../../../../assets/pictures/hero/stockMan.jpg" >
+<div class="container-main-img">
+  <div class="opac-background"></div>
   <h1>{{mainText}}</h1>
-  <h2>{{secondaryText}}</h2>
-  <h2 class="website">website</h2>
-  <h2 class="hamburger">Hamburger</h2>
-  <button>Hamburger ?</button>
+  <h2>{{secondaryText}}<div class="hamburger-text" (mouseover)="hamburger='Website.'" (mouseleave)="hamburger='Hamburger.'">{{hamburger}}</div></h2>
+  <button>My work</button>
 </div>
 

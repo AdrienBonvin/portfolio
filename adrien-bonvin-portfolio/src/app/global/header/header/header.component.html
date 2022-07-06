@@ -1,5 +1,7 @@
-<div class="row container-header">
-        <img class="logo" [src]="pathLogo" (click)="'#'">
-        <a href="#isElementToScroll" class="about" [ngStyle]="{'color' : fontColor}">
-          About me</a>
+<div class="container-header">
+    <img class="item-header logo" [src]="pathLogo" (click)="'#'">
+    <a href="#isElementToScroll" class="item-header" [ngStyle]="{'color' : fontColor}">
+      About
+    </a>
+    <button [ngClass]="buttonType" class="item-header">Contact me</button>
 </div>

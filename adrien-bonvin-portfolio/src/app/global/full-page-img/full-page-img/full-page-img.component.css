@@ -1,35 +1,37 @@
 /** Image préface */
   .container-main-img {
-
     margin: 0 auto;
     overflow:hidden;
-  }
-
-  .container-main-img img {
-    position: relative;
-    width:100%;
-    object-fit: cover;
-    object-position: 100% 5%;
     filter: brightness(100%);
-    padding:0;
-    margin:0;
+    background-image: url('../../../../assets/pictures/hero/stockMan.jpg');
+    background-size: cover;
+    background-position: 50% 30%;
+    height:100vh;
   }
-          @media (max-width: 1800px) {
-            .container-main-img img {
-              object-position: 72% 5%;
+          @media (max-width: 1200px) {
+            .container-main-img {
+              background-position: 60% 0%;
+
             }
           }
-
+  .opac-background {
+    position: absolute;
+    width:50%;
+    padding:0;
+    margin:0;
+    background :linear-gradient(to right , #000000b7, #ffffff00);
+    height:100vh;
+  }
 
   h1, h2 {
     margin: 0 6%;
     padding:0;
     text-shadow: 0 0.2rem 0.2rem rgb(0 0 0 / 20%);
     position:absolute;
-    font-weight: bolder;
-    color: rgb(255, 255, 255);
+    font-weight: bold;
+    color: #ffffff;
   }
-          @media (max-width: 1000px) {
+          @media (max-width: 600px) {
             h1, h2 {
               margin: 0;
               width: 100%;
@@ -39,111 +41,61 @@
 
   .container-main-img h1 {
     top: 20%;
-    font-size: 120px;
-  }
-            @media (max-width: 1000px) {
-              .container-main-img h1 {
-                font-size: 12vw;
-              }
-            }
-            @media (min-width: 2000px) {
-              .container-main-img h1 {
-                font-size: 6vw;
-              }
-            }
-
-  .container-main-img h2 {
-    top: 40%;
-    font-size: 50px;
+    font-size: 12vh;
   }
             @media (max-width: 600px) {
-              .container-main-img h2 {
-                font-size: 8vw;
+              .container-main-img h1 {
+                font-size: 6vh;
               }
             }
             @media (min-width: 2000px) {
-              .container-main-img h2 {
-                font-size: 2.5vw;
+              .container-main-img h1 {
+                font-size: 6vh;
               }
             }
 
-  .website, .app, .hamburger {
-    left: 435px;
-    font-size: 50px;
-  }
-          @media (max-width: 1000px) {
-            .website, .app, .hamburger {
-              padding-top:100px;
-              left: 0;
-              font-size: 5vw;
-            }
-          }
-          @media (min-width: 2000px) {
-            .website, .app, .hamburger {
-              left: 21.7vw;
-              font-size: 2.5vw;
-            }
-          }
-
-  .container-main-img h2.website{
+  h2 {
     top: 40%;
-    text-decoration: line-through;
-    opacity: 80%;
+    font-size: 6vh;
+    display: flex;
+    align-items: center;
+    color:#BFFCFB
   }
-
-  .container-main-img h2.hamburger{
-    top: 47%;
-    color: #ae4300;
-  }
-
-  .hamburger {
-    animation: hoverAnimationOut 0.2s forwards normal;
-  }
-  .hamburger:hover {
-    animation: hoverAnimationIn 0.2s forwards normal;
-    cursor: pointer;
+            @media (max-width: 600px) {
+              h2 {
+                font-size: 5vh;
+              }
+            }
+            @media (min-width: 2000px) {
+              h2 {
+                font-size: 2.5vh;
+              }
+            }
+    .hamburger-text {
+      width:35vh;
+      display: flex;
+      justify-content: center;
+      color:#FF8749;
   }
 
   button {
     position: absolute;
-    top:70%;
-    left:15%;
-    width:auto;
-    height:auto;
-    padding: 2% 3%;
-    background-color: #ae4300;
-    border: #ae4300;
-    border-radius: 5px;
+    top:70vh;
+    left:6%;
+    padding: 5vh 8vh;
     font-weight: bolder;
-    font-size: 60px;
+    font-size: 8vh;
+    background-color: #019494;
     color: white;
+    border: #019494;
+    border-radius: 30px;
     cursor: pointer;
     animation: hoverAnimationOut 0.2s forwards normal;
   }
   button:hover {
     animation: hoverAnimationIn 0.2s forwards normal;
-    background-color: #662700;
-    transition-duration: 0.5s;
+    background-color: white;
+    color:#019494;
+    border: white;
+    transition-duration: 0.2s;
   }
-
-  @keyframes hoverAnimationIn {
-    from {
-        /*Etat final*/
-        transform: scale(1);
-    }
-    to {
-        /*Etat initial*/
-        transform: scale(1.1);
-    }
-  }
-  @keyframes hoverAnimationOut {
-    from {
-        /*Etat final*/
-        transform: scale(1.1);
-    }
-    to {
-        /*Etat initial*/
-        transform: scale(1);
-    }
-  }
-

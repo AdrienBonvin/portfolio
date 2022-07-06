@@ -1,79 +1,84 @@
 .container-header {
   position: fixed;
-  height: 120px;
   width: 100%;
+  height:12vh;;
   z-index: 1;
+
+  display:flex;
+  align-items:center ;
+  justify-content: flex-end;
+}
+
+
+.item-header {
+  font-size: 3vh;
+  font-weight: bolder;
+  font-family: Inter, sans-serif;
+
+  display:flex;
+  align-items: center;
+  text-decoration: none;
+  margin-right:6vw;
+  animation: hoverAnimationOut 0.2s forwards normal;
+}
+.item-header:hover {
+  animation: hoverAnimationIn 0.2s forwards normal;
 }
 
 .logo {
-  position:absolute;
-  left:10%;
-  top:40px;
-  width:180px;
+  margin-right:auto;
+  margin-left:6vw;
+  height:4.5vh;
   cursor: pointer;
-  animation: hoverAnimationOut 0.2s forwards normal;
 }
     @media (max-width: 1000px) {
       .logo {
-        width: 18vw;
         min-width: 100px;
-        top:4vw;
       }
     }
     @media (min-width: 2000px) {
       .logo {
-        width:9vw;
       }
     }
-.logo:hover {
-  animation: hoverAnimationIn 0.2s forwards normal;
-}
 
 
-.about {
-  position:absolute;
-  text-decoration: none;
-  top:50px;
-  right:10%;
-  font-size: 25px;
-  font-family: Inter, sans-serif;
-  animation: hoverAnimationOut 0.2s forwards normal;
+button {
+  border-radius: 10px;
+  padding: 1.5vh 3vh;
+  cursor: pointer;
 }
     @media (max-width: 1000px) {
       .about {
-        font-size: 2.5vw;
-        top:5vw;
+        min-width: 100px;
       }
     }
     @media (min-width: 2000px) {
       .about {
-        font-size: 1.25vw;
+        min-width: 100px;
       }
     }
-.about:hover {
-  animation: hoverAnimationIn 0.2s forwards normal;
+button:hover {
+  transition-duration: 0.1s;
 }
 
-
-/*Animations*/
-@keyframes hoverAnimationIn {
-  from {
-      /*Etat final*/
-      transform: scale(1);
-  }
-  to {
-      /*Etat initial*/
-      transform: scale(1.1);
-  }
+.blue-button {
+  background-color: #019494;
+  border:#019494;
+  color: white;
 }
 
-@keyframes hoverAnimationOut {
-  from {
-      /*Etat final*/
-      transform: scale(1.1);
-  }
-  to {
-      /*Etat initial*/
-      transform: scale(1);
-  }
+.blue-button:hover {
+  background-color: #ffffff;
+  color:#019494;
+}
+
+.white-button {
+  background-color: #ffffff;
+  border:#ffffff;
+  color: #019494;
+}
+
+.white-button:hover {
+  background-color: #019494;
+  color:#ffffff;
 }
