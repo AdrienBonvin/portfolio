@@ -1,14 +1,16 @@
-<div class="container-work">
-  <div class="container-before-work">
+<div class="container-skillset">
+  <div class="container-before-skillset">
   <img class="plate" src="../../../assets/pictures/hamburger/plate.png">
-  <h1>Let's work together to build your very own<strong class="hamburger-text" (mouseover)="hamburger='Website'" (mouseleave)="hamburger='Hamburger'">{{hamburger}}</strong>.</h1>
+  <h1>Let's work together to build your very own<strong class="hamburger-text" (mouseover)="changeHamburgerText()" (mouseleave)="changeHamburgerText()">{{hamburger}}</strong>.</h1>
   </div>
   <div class="container-about">
-    <div class="coin-quote" [ngClass]="{'coin-quote-animation':coinQuoteVisible, 'coin-quote-hidden': !coinQuoteVisible}"><p class="start-quote">Two sides from</p><p class="end-quote"> the same coin</p></div>
+    <div class="coin-quote" [ngClass]="{'coin-quote-animation':coinQuoteVisible, 'coin-quote-hidden': !coinQuoteVisible}">
+      <p class="start-quote">Two sides from</p><p class="end-quote"> the same coin</p>
+    </div>
     <div class="coin" [ngClass]="coinSide" (click)="flipCoin()" (mouseenter)="coinQuoteVisible=true"
-    (mouseleave)="coinQuoteVisible=false">:
-      <img class="about-img face-a"src="../../../assets/pictures/about/personal_photo.jpg">
-      <img class="about-img face-b"src="../../../assets/pictures/about/personal_photo.jpg">
+    (mouseleave)="coinQuoteVisible=false">
+      <!--<img class="about-img face-a" src="../../../assets/pictures/about/personal_photo.jpg">
+      <img class="about-img face-b" src="../../../assets/pictures/about/personal_photo.jpg">-->
       <!-- Frontent tooltips -->
       <div *ngIf="tooltipOpened==='angular'" class="logo-tooltip">
         <p><strong>Angular</strong> is my favorite framework for webdeveloppement, helping keeping complex projects simple.</p>

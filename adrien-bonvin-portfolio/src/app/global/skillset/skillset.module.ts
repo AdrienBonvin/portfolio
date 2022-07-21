@@ -1,6 +1,6 @@
 import { NgModule } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { SkillsetComponent } from './skillset';
+import { SkillsetComponent } from './skillset.component';
 
 
 

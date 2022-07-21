@@ -9,7 +9,6 @@
   justify-content: flex-end;
 }
 
-
 .item-header {
   font-size: 3vh;
   font-weight: bolder;
@@ -28,8 +27,10 @@
 .logo {
   margin-right:auto;
   margin-left:6vw;
-  height:4.5vh;
   cursor: pointer;
+}
+.logo img {
+  height:4.5vh;
 }
     @media (max-width: 1000px) {
       .logo {

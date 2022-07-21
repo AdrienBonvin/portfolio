@@ -4,7 +4,7 @@ import { NumberValueAccessor } from '@angular/forms';
 @Component({
   selector: 'app-scrolling-picture-transition',
   templateUrl: './scrolling-picture-transition.component.html',
-  styleUrls: ['./scrolling-picture-transition.component.scss']
+  styleUrls: ['./scrolling-picture-transition.component.css']
 })
 export class ScrollingPictureTransitionComponent implements OnInit {
   delay!: string;
@@ -33,14 +33,15 @@ export class ScrollingPictureTransitionComponent implements OnInit {
   showUiuxText = false;
 
   initialCount = 0;
+  intervalId!: NodeJS.Timeout;
 
   constructor(private el: ElementRef) { }
 
   @HostListener('window:scroll', [])
   scroll(): void {
-    const rect = this.el.nativeElement.getBoundingClientRect();
     let scrollHeight = window.scrollY - window.innerHeight;
     let animationTimeStamp = scrollHeight/1000;
+    let isTelephone = window.innerWidth < 800;
 
     this.animationDelayBottomBun = this.setAnimation(animationTimeStamp, this.initialCount+1);
 
@@ -59,6 +60,38 @@ export class ScrollingPictureTransitionComponent implements OnInit {
     this.animationDelayTopBun = this.setAnimation(animationTimeStamp, this.initialCount+8);
 
     this.opacityMainText = (animationTimeStamp)>0 && (animationTimeStamp)<1 ? animationTimeStamp*2 : 0;
+
+    this.setTextVisibility(scrollHeight, isTelephone);
+  }
+
+  ngOnInit(): void {
+    if (window.innerWidth < 1000) {
+      this.intervalId = setInterval(() => {
+        this.changeHamburgerText()
+      }, 2000);
+    }
+  }
+
+  ngOnDestroy() {
+    clearInterval(this.intervalId);
+  }
+
+  changeHamburgerText(){
+    if(this.hamburger == 'Hamburger') {
+      this.hamburger = 'Website'
+    } else {
+      this.hamburger = 'Hamburger'
+    }
+  }
+
+  setAnimationTimestamp(timeStamp: number, delay: number):string {
+    return ('-'+(timeStamp-delay).toFixed(2)+'s');
+  }
+  setAnimation(animationTimestamp:number, delay:number):string {
+    return (animationTimestamp-delay)>0 ? (this.setAnimationTimestamp(animationTimestamp, delay)) : '0s';
+  }
+
+  setTextVisibility(scrollHeight: number, isTelephone: boolean){
     if (scrollHeight> 10050) {
       this.isAllTextVisible(false);
     }
@@ -73,42 +106,51 @@ export class ScrollingPictureTransitionComponent implements OnInit {
     else if (scrollHeight> 9700) {
       this.showDevopsText = false;
       this.showFrontendText = false;
+
     } else if (scrollHeight> 8500) {
-      this.isAllTextVisible(true);
+      if (isTelephone) {
+        (scrollHeight > 9050) ? this.showUiuxText = false : this.showUiuxText = true;
+        ;
+        this.showSocialText = false;
+      } else {
+        this.isAllTextVisible(true);
+      }
     } else if (scrollHeight> 7500) {
       this.showUiuxText = false;
       this.showSocialText = true;
+      isTelephone ? this.showCustomerserviceText = false : null;
+
     } else if (scrollHeight> 6500) {
       this.showSocialText = false;
       this.showCustomerserviceText = true;
+      isTelephone ? this.showGraphicdesignText = false : null;
+
     } else if (scrollHeight> 5500) {
       this.showCustomerserviceText = false;
       this.showGraphicdesignText = true;
+      isTelephone ? this.showApiText = false : null;
+
     } else if (scrollHeight> 4500) {
       this.showGraphicdesignText = false;
       this.showApiText = true;
+      isTelephone ? this.showBackendText = false : null;
+
     } else if (scrollHeight> 3500) {
       this.showApiText = false;
       this.showBackendText = true;
+      isTelephone ? this.showFrontendText = false : null;
     } else if (scrollHeight> 2500) {
       this.showBackendText = false;
       this.showFrontendText = true;
+      isTelephone ? this.showDevopsText = false : null;
+      console.log('isTelephone : ' + isTelephone);
+      this.showBackendText
     } else if (scrollHeight> 1500) {
       this.showFrontendText = false;
       this.showDevopsText = true;
     } else {
       this.showDevopsText = false;
     }
-  }
-
-  ngOnInit(): void {
-  }
-
-  setAnimationTimestamp(timeStamp: number, delay: number):string {
-    return ('-'+(timeStamp-delay).toFixed(2)+'s');
-  }
-  setAnimation(animationTimestamp:number, delay:number):string {
-    return (animationTimestamp-delay)>0 ? (this.setAnimationTimestamp(animationTimestamp, delay)) : '0s';
   }
 
   isAllTextVisible(visible:boolean){

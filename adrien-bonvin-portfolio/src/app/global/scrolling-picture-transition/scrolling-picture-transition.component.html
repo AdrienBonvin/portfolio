@@ -27,7 +27,7 @@
     </div>
 
     <div  class="main-text" [ngStyle]="{'opacity': opacityMainText}">
-      <h1>Let me explain what your full stack <div class="hamburger-text" (mouseover)="hamburger='Website'" (mouseleave)="hamburger='Hamburger'">{{hamburger}}</div> will be made of.</h1>
+      <h1>Let me explain what your full stack <div class="hamburger-text" (mouseover)="changeHamburgerText()" (mouseleave)="changeHamburgerText()">{{hamburger}}</div> will be made of.</h1>
     </div>
 
     <div class="encadres-texts">
@@ -40,9 +40,6 @@
       <div [hidden]="!showFrontendText" class="front-end">
         <h1>FrontEnd Steak</h1>
         <h2>Must be of optimal quality to attract customers and make your burger memorable.</h2>
-        <!--<img class="angular icon" src="../../../assets/pictures/logo/angular.png">
-        <img class="typescript icon" src="../../../assets/pictures/logo/typescript.png">
-        -->
       </div>
 
       <div [hidden]="!showBackendText" class="back-end">

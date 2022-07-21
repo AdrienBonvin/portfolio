@@ -1,7 +1,8 @@
 <div class="container-main-img">
   <div class="opac-background"></div>
   <h1>{{mainText}}</h1>
-  <h2>{{secondaryText}}<div class="hamburger-text" (mouseover)="hamburger='Website.'" (mouseleave)="hamburger='Hamburger.'">{{hamburger}}</div></h2>
+  <h2>{{secondaryText}}<div class="hamburger-text" (mouseover)="changeHamburgerText()" (mouseleave)="changeHamburgerText()">{{hamburger}}</div></h2>
+  <p>{{sideText}}</p>
   <button>My work</button>
 </div>
 

@@ -23,7 +23,7 @@
     height:100vh;
   }
 
-  h1, h2 {
+  h1, h2, p {
     margin: 0 6%;
     padding:0;
     text-shadow: 0 0.2rem 0.2rem rgb(0 0 0 / 20%);
@@ -40,8 +40,8 @@
           }
 
   .container-main-img h1 {
-    top: 20%;
-    font-size: 12vh;
+    top: 20vh;
+    font-size: 14vh;
   }
             @media (max-width: 600px) {
               .container-main-img h1 {
@@ -55,7 +55,7 @@
             }
 
   h2 {
-    top: 40%;
+    top: 40vh;
     font-size: 6vh;
     display: flex;
     align-items: center;
@@ -76,6 +76,14 @@
       display: flex;
       justify-content: center;
       color:#FF8749;
+  }
+
+  p {
+    top: 50vh;
+    font-size: small;
+    font-weight: normal;
+    color:#ffffff;
+    width: 40%;
   }
 
   button {
@@ -99,3 +107,4 @@
     border: white;
     transition-duration: 0.2s;
   }
+

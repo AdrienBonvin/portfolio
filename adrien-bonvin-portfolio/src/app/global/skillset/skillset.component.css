@@ -1,10 +1,11 @@
-.container-work {
+.container-skillset {
   height:fit-content;
   width:100%;
   background-color:#019494;
+  z-index:1;
 }
 
-.container-before-work {
+.container-before-skillset {
   display:flex;
   align-items: center;
   flex-direction: column;
@@ -17,7 +18,7 @@
 }
 
 h1 {
-  font-size: 50px;
+  font-size: 4vh;
   text-align: center;
   color:white;
   width:80%;
@@ -32,7 +33,9 @@ strong {
   flex-direction: row;
   flex-wrap: wrap;
   align-items: stretch;
+  box-shadow: inset 0 0 65px rgba(255,255,255,.3), 0 12px 20px -10px rgba(0,0,0,.4);
 }
+
 /*MediaQuery pour screen portable = passer en flex column */
 h2 {
   font-weight: bolder;
@@ -45,9 +48,9 @@ h3 {
 }
 .frontend {
   flex:1;
+  height:auto;
   background-color: #000000;
   color: #ffffff;
-  height:75vh;
   display:flex;
   flex-direction: column;
   padding-left: 2vw;
@@ -67,7 +70,6 @@ h3 {
   flex:1;
   background-color: #ffffff;
   color:#000000;
-  height:75vh;
   display:flex;
   flex-direction: column;
   padding-right: 2vw;
@@ -88,13 +90,15 @@ h3 {
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  perspective: 300px
+  perspective: 500px
 }
 .container-logo {
   flex:1;
   display:flex;
-  align-items: center;
+  align-items: self-end;
   justify-content: space-evenly;
+  padding: 3vh 0;
+  height: fit-content;
 }
 .logo {
   height: 7vh;
@@ -106,8 +110,6 @@ h3 {
 }
 
 .logo-tooltip {
-  top: -0.1vh;
-  left: 0.8vh;
   position: absolute;
   width:40vh;
   height: 40.3vh;
@@ -150,7 +152,7 @@ h3 {
   transition: 1s;
 }
 .coin {
- position: relative;
+  position: relative;
   z-index: 1;
   width:40vh;
   height: 40vh;
@@ -161,9 +163,9 @@ h3 {
 .about-img {
   position:absolute;
   width:40vh;
+  height:40vh;
   border-radius: 50%;
   cursor: pointer;
-  backface-visibility: hidden;
   box-shadow: inset 0 0 45px rgba(255,255,255,.3), 0 12px 20px -10px rgba(0,0,0,.4);
 }
 
@@ -174,6 +176,64 @@ h3 {
   animation: flipTails 1.8s ease-out forwards;
 }
 
+@media (max-width: 800px) {
+  .container-about {
+    perspective: 800px;
+  }
+  h1 {
+    font-size: 5vh;
+  }
+  .container-text {
+    flex-direction: column;
+  }
+  .frontend {
+    flex: 100%;
+    padding-bottom:35vh;
+  }
+  .frontend-text h2{
+    text-align: center;
+  }
+  .frontend-text h3{
+    margin: 4vh;
+    text-align: center;
+    font-size: 3vh;
+  }
+  .backend {
+    flex: 100%;
+    padding-top:25vh;
+    padding-bottom: 5vh;
+  }
+  .backend-text h2{
+    text-align: center;
+  }
+  .backend-text h3{
+    margin: 4vh;
+    text-align: center;
+    font-size: 3vh;
+  }
+  .coin {
+    position:absolute;
+    margin-top: 15vh;
+    margin-bottom:0vw;
+  }
+  .coin-quote {
+    visibility: hidden;
+  }
+
+  .heads {
+    animation: flipHeadsPhone 1.8s ease-out forwards;
+  }
+  .tails {
+    animation: flipTailsPhone 1.8s ease-out forwards;
+  }
+}
+
+
+/* ###############
+### ANIMATIONS ###
+##################*/
+
+/* Animation pièce sur ordinateur */
 
 @keyframes flipHeads {
   0% {
@@ -186,7 +246,6 @@ h3 {
     transform: scale(1) rotateY(1800deg) rotateX(1800deg) rotate(0deg);
   }
 }
-
 @keyframes flipTails {
 
   0% {
@@ -202,22 +261,21 @@ h3 {
 
 }
 
-/*
-  @keyframes flipHeads {
+/* Animation pièce sur telephone */
+  @keyframes flipHeadsPhone {
   from {
-    transform: rotateY(0);
+    transform: rotateY(180deg);
   }
   to
   {
     transform: rotateY(1800deg);
   }
 }
-
-@keyframes flipTails {
+@keyframes flipTailsPhone {
   from {
     transform: rotateY(0);
   }
   to {
     transform: rotateY(1980deg);
   }
-}*/
+}

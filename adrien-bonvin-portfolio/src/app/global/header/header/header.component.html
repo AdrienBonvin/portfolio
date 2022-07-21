@@ -1,7 +1,9 @@
 <div class="container-header">
-    <img class="item-header logo" [src]="pathLogo" (click)="'#'">
+  <a class="item-header logo" href="">
+    <img [src]="pathLogo">
+  </a>
     <a href="#isElementToScroll" class="item-header" [ngStyle]="{'color' : fontColor}">
       About
     </a>
-    <button [ngClass]="buttonType" class="item-header">Contact me</button>
+    <button [ngClass]="buttonType" class="item-header" onclick="document.getElementById('contact').scrollIntoView({ block: 'end'});">Contact me</button>
 </div>
