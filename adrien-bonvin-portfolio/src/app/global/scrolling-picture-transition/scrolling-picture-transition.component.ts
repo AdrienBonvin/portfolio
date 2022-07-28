@@ -43,23 +43,23 @@ export class ScrollingPictureTransitionComponent implements OnInit {
     let animationTimeStamp = scrollHeight/1000;
     let isTelephone = window.innerWidth < 800;
 
-    this.animationDelayBottomBun = this.setAnimation(animationTimeStamp, this.initialCount+1);
+    this.animationDelayBottomBun = this.setAnimation(animationTimeStamp, this.initialCount+0.5);
 
-    this.animationDelaySteak = this.setAnimation(animationTimeStamp, this.initialCount+2);
+    this.animationDelaySteak = this.setAnimation(animationTimeStamp, this.initialCount+1);
 
-    this.animationDelayCheese = this.setAnimation(animationTimeStamp, this.initialCount+3);
+    this.animationDelayCheese = this.setAnimation(animationTimeStamp, this.initialCount+1.5);
 
-    this.animationDelayPickles = this.setAnimation(animationTimeStamp, this.initialCount+4);
+    this.animationDelayPickles = this.setAnimation(animationTimeStamp, this.initialCount+2);
 
-    this.animationDelayOignons = this.setAnimation(animationTimeStamp, this.initialCount+5);
+    this.animationDelayOignons = this.setAnimation(animationTimeStamp, this.initialCount+2.5);
 
-    this.animationDelayTomatoes = this.setAnimation(animationTimeStamp, this.initialCount+6);
+    this.animationDelayTomatoes = this.setAnimation(animationTimeStamp, this.initialCount+3);
 
-    this.animationDelaySalad = this.setAnimation(animationTimeStamp, this.initialCount+7);
+    this.animationDelaySalad = this.setAnimation(animationTimeStamp, this.initialCount+3.5);
 
-    this.animationDelayTopBun = this.setAnimation(animationTimeStamp, this.initialCount+8);
+    this.animationDelayTopBun = this.setAnimation(animationTimeStamp, this.initialCount+4);
 
-    this.opacityMainText = (animationTimeStamp)>0 && (animationTimeStamp)<1 ? animationTimeStamp*2 : 0;
+    this.opacityMainText = (animationTimeStamp)>0 && (animationTimeStamp)<0.6 ? animationTimeStamp*3 : 0;
 
     this.setTextVisibility(scrollHeight, isTelephone);
   }
@@ -92,60 +92,59 @@ export class ScrollingPictureTransitionComponent implements OnInit {
   }
 
   setTextVisibility(scrollHeight: number, isTelephone: boolean){
-    if (scrollHeight> 10050) {
+    if (scrollHeight> 5075) {
       this.isAllTextVisible(false);
     }
-    else if (scrollHeight> 9950) {
+    else if (scrollHeight> 4925) {
       this.showCustomerserviceText = false;
       this.showGraphicdesignText = false;
     }
-    else if (scrollHeight> 9800) {
+    else if (scrollHeight> 4825) {
       this.showBackendText = false;
       this.showApiText = false;
     }
-    else if (scrollHeight> 9700) {
+    else if (scrollHeight> 4650) {
       this.showDevopsText = false;
       this.showFrontendText = false;
 
-    } else if (scrollHeight> 8500) {
+    } else if (scrollHeight> 4250) {
       if (isTelephone) {
-        (scrollHeight > 9050) ? this.showUiuxText = false : this.showUiuxText = true;
+        (scrollHeight > 4525) ? this.showUiuxText = false : this.showUiuxText = true;
         ;
         this.showSocialText = false;
       } else {
         this.isAllTextVisible(true);
       }
-    } else if (scrollHeight> 7500) {
+    } else if (scrollHeight> 3750) {
       this.showUiuxText = false;
       this.showSocialText = true;
       isTelephone ? this.showCustomerserviceText = false : null;
 
-    } else if (scrollHeight> 6500) {
+    } else if (scrollHeight> 3250) {
       this.showSocialText = false;
       this.showCustomerserviceText = true;
       isTelephone ? this.showGraphicdesignText = false : null;
 
-    } else if (scrollHeight> 5500) {
+    } else if (scrollHeight> 2750) {
       this.showCustomerserviceText = false;
       this.showGraphicdesignText = true;
       isTelephone ? this.showApiText = false : null;
 
-    } else if (scrollHeight> 4500) {
+    } else if (scrollHeight> 2250) {
       this.showGraphicdesignText = false;
       this.showApiText = true;
       isTelephone ? this.showBackendText = false : null;
 
-    } else if (scrollHeight> 3500) {
+    } else if (scrollHeight> 1750) {
       this.showApiText = false;
       this.showBackendText = true;
       isTelephone ? this.showFrontendText = false : null;
-    } else if (scrollHeight> 2500) {
+    } else if (scrollHeight> 1250) {
       this.showBackendText = false;
       this.showFrontendText = true;
       isTelephone ? this.showDevopsText = false : null;
-      console.log('isTelephone : ' + isTelephone);
       this.showBackendText
-    } else if (scrollHeight> 1500) {
+    } else if (scrollHeight> 750) {
       this.showFrontendText = false;
       this.showDevopsText = true;
     } else {

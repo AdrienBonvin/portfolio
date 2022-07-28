@@ -5,7 +5,7 @@
     filter: brightness(100%);
     background-image: url('../../../../assets/pictures/hero/stockMan.jpg');
     background-size: cover;
-    background-position: 50% 30%;
+    background-position: 50% 0%;
     height:100vh;
   }
           @media (max-width: 1200px) {

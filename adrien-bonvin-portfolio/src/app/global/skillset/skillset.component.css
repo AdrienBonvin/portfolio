@@ -25,7 +25,16 @@ h1 {
 }
 
 strong {
-  padding-left:2vh;
+  padding-left:1.3vh;
+}
+
+.full-stack {
+  text-align: center;
+  font-size: 9.5vw;
+  font-weight: bolder;
+  color:white;
+  margin-bottom:-26.5vh;
+  margin-top:10vh;
 }
 
 .container-text {
@@ -33,7 +42,6 @@ strong {
   flex-direction: row;
   flex-wrap: wrap;
   align-items: stretch;
-  box-shadow: inset 0 0 65px rgba(255,255,255,.3), 0 12px 20px -10px rgba(0,0,0,.4);
 }
 
 /*MediaQuery pour screen portable = passer en flex column */
@@ -166,7 +174,6 @@ h3 {
   height:40vh;
   border-radius: 50%;
   cursor: pointer;
-  box-shadow: inset 0 0 45px rgba(255,255,255,.3), 0 12px 20px -10px rgba(0,0,0,.4);
 }
 
 .heads {
@@ -236,7 +243,7 @@ h3 {
 /* Animation pièce sur ordinateur */
 
 @keyframes flipHeads {
-  0% {
+ /* 0% {
     transform: scale(1) rotateY(180deg) rotateX(180deg) rotate(-32deg) ;
   } 50%{
     transform: scale(2) rotateY(990deg) rotateX(990deg) rotate(-16deg) ;
@@ -244,10 +251,17 @@ h3 {
   100%
   {
     transform: scale(1) rotateY(1800deg) rotateX(1800deg) rotate(0deg);
+  }*/
+  from {
+    transform: rotateY(180deg);
+  }
+  to
+  {
+    transform: rotateY(1800deg);
   }
 }
 @keyframes flipTails {
-
+/*
   0% {
     transform: scale(1) rotateY(0) rotateX(0);
   }
@@ -257,11 +271,16 @@ h3 {
   100% {
     transform: scale(1) rotateY(1980deg) rotateX(1980deg) rotate(-32deg);
 
+  }*/
+  from {
+    transform: rotateY(0);
   }
-
+  to {
+    transform: rotateY(1980deg);
+  }
 }
 
-/* Animation pièce sur telephone */
+/* Animation pièce sur telephone
   @keyframes flipHeadsPhone {
   from {
     transform: rotateY(180deg);
@@ -278,4 +297,4 @@ h3 {
   to {
     transform: rotateY(1980deg);
   }
-}
+}*/
