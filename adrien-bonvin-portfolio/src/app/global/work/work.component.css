@@ -1,0 +1,269 @@
+.work-container {
+  width:100%;
+  background-color: black
+}
+.project-container {
+  height:100vh;
+  width:100%;
+  background-color: rgba(39, 39, 39, 0.61);
+  display:flex;
+  align-items: center;
+  justify-content: center;
+}
+.project {
+  display:flex;
+  align-items: center;
+  justify-content: center;
+}
+.project-text {
+  height:60vh;
+  width:30%;
+  color:white;
+  background-color: rgb(32, 54, 54);
+  padding:3%;
+  display:flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+.project-text h1 {
+  font-weight: bolder;
+  font-size:5vh;
+}
+.project-text h2 {
+  font-weight: normal;
+  font-size:2.5vh;
+}
+
+
+/*
+########## COMPUTER CSS ##########
+*/
+.project-demo {
+  text-align: center;
+  width:40%;
+}
+.computer {
+  display: inline-block;
+  position: relative;
+  z-index: 3;
+  text-align: center;
+  font-size: 0;
+  perspective: 2400px;
+  perspective-origin: 50% 100%;
+  opacity: 0;
+  transition: 500ms opacity;
+}
+
+.computer.loaded {
+  opacity: 1;
+}
+
+.computer .part .top,
+.computer .part .bottom {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.computer .part.top {
+  transform: translate3d(0, 0, 0) rotateX(-90deg);
+}
+
+.computer-open .part.top { /* HOVER*/
+  transform: translate3d(0, 0, 0) rotateX(0deg);
+}
+
+.computer .part {
+  display: inline-block;
+  position: relative;
+  -webkit-transform-style: preserve-3d;
+  transform-style: preserve-3d;
+  transform-origin: 50% 100%;
+  transition: 900ms;
+}
+
+.computer.opened .part .top {
+  transform: translate3d(0, 0, -1vh) rotateX(90deg) scale(1, 1);
+}
+
+.computer .part .top {
+  transform-origin: 50% 0;
+  transform: translate3d(0, 0, -1vh) rotateX(90deg);
+  transition: 900ms;
+}
+
+.computer img {
+  display: block;
+  max-width: 100%;
+  backface-visibility: hidden;
+}
+
+.computer .part .cover {
+  position: relative;
+}
+
+.video-mockup {
+  display: block;
+  position: absolute;
+  top: 8.5%;
+  left: 2%;
+  width: 96%;
+  height:85%;
+  border-radius: 6px;
+  backface-visibility: hidden;
+  transform: translate3d(0, 0, 1px);
+  transition: ease-in-out 0.1s;
+}
+
+.video-mockup video{
+  width:300px;
+  height:300px;
+}
+
+.computer:hover .video-mockup{
+  cursor: pointer;
+  filter: brightness(20%);
+  transition: ease-in-out 0.1s;
+}
+
+.mockup-text {
+  position: absolute;
+  font-size: 8vh;
+  color:rgb(255, 255, 255);
+  left: 50%;
+  top: 46%;
+  width:30vw;
+  transform: translate(-50%, -50%);
+  z-index:1;
+  opacity:0;
+  cursor:default;
+}
+
+.hover-text {
+  opacity:0;
+  transition: ease-in-out 0.1s;
+}
+
+.hover-text:hover {
+cursor:pointer;
+}
+
+.computer:hover .hover-text{
+  opacity:100%;
+  transition: ease-in-out 0.1s;
+}
+
+.computer .part.bottom {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform: translate3d(0, 0, 0) rotateX(-90deg);
+}
+
+.computer .part .bottom {
+    transform-origin: 50% 0;
+    transform: translate3d(0,0,0) rotateX(90deg);
+}
+
+
+/*
+########## PHONE CSS ##########
+*/
+.mobile {
+  margin-top:-15vh;
+  margin-left:70vh;
+  z-index:2;
+  height: 20vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: ease-in-out 0.5s;
+}
+
+.phone {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 60px;
+  height: 120px;
+  background: #afafaf;
+  border-radius: 10px;
+  padding: 1px;
+  z-index:1;
+}
+.phone-mirror {
+  position: relative;
+  width: 55px;
+  height: 115px;
+  background-color: rgb(26, 25, 25);
+  border-radius: 7px;
+}
+.topWrapper {
+  position: relative;
+  width: 35px;
+  height:8px;
+  margin: 0px auto 0 auto;
+  float: left;
+  left: 15%;
+  background-color: #232526;
+  border-radius: 0 0 45px 45px;
+}
+.line-rec {
+  position: relative;
+  width: 14px;
+  height: 2px;
+  margin: 0px auto 0 auto;
+  float: left;
+  top: 2px;
+  background-color: rgb(83, 83, 82);
+  border-radius: 5px;
+  border: 1px solid rgb(214, 214, 214);
+}
+.camera {
+  position: relative;
+  float: left;
+  margin-right: 8px;
+  width: 4px;
+  height: 4px;
+  top: 1px;
+  left: 6px;
+  background-color: rgb(83, 83, 82);
+  border-radius: 30px;
+  border: 1px solid rgb(214, 214, 214);
+}
+.buttons {
+  background-color: black;
+  width: 100%;
+  height: 30px;
+  border-radius: 0 0 45px 45px;
+}
+.video-mockup-phone {
+  height:90%;
+}
+
+
+
+
+
+
+
+@media (max-width:800px) {
+  .project-container {
+    height:fit-content;
+    padding-top:5vh;
+    padding-bottom:10vh;
+  }
+  .project {
+    flex-direction:column !important;
+  }
+  .project-text {
+    width:80%;
+    height: fit-content;
+    padding-bottom:10vh;
+  }
+  .project-demo {
+    margin-top:-8vh;
+    width:75%;
+  }
+}

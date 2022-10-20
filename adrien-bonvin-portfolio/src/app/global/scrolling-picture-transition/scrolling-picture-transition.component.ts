@@ -39,27 +39,27 @@ export class ScrollingPictureTransitionComponent implements OnInit {
 
   @HostListener('window:scroll', [])
   scroll(): void {
-    let scrollHeight = window.scrollY - window.innerHeight;
+    let scrollHeight = window.scrollY;
     let animationTimeStamp = scrollHeight/1000;
     let isTelephone = window.innerWidth < 800;
 
-    this.animationDelayBottomBun = this.setAnimation(animationTimeStamp, this.initialCount+0.5);
+    this.animationDelayBottomBun = this.setAnimation(animationTimeStamp, this.initialCount+1.4);
 
-    this.animationDelaySteak = this.setAnimation(animationTimeStamp, this.initialCount+1);
+    this.animationDelaySteak = this.setAnimation(animationTimeStamp, this.initialCount+1.6);
 
-    this.animationDelayCheese = this.setAnimation(animationTimeStamp, this.initialCount+1.5);
+    this.animationDelayCheese = this.setAnimation(animationTimeStamp, this.initialCount+1.8);
 
     this.animationDelayPickles = this.setAnimation(animationTimeStamp, this.initialCount+2);
 
-    this.animationDelayOignons = this.setAnimation(animationTimeStamp, this.initialCount+2.5);
+    this.animationDelayOignons = this.setAnimation(animationTimeStamp, this.initialCount+2.2);
 
-    this.animationDelayTomatoes = this.setAnimation(animationTimeStamp, this.initialCount+3);
+    this.animationDelayTomatoes = this.setAnimation(animationTimeStamp, this.initialCount+2.4);
 
-    this.animationDelaySalad = this.setAnimation(animationTimeStamp, this.initialCount+3.5);
+    this.animationDelaySalad = this.setAnimation(animationTimeStamp, this.initialCount+2.6);
 
-    this.animationDelayTopBun = this.setAnimation(animationTimeStamp, this.initialCount+4);
+    this.animationDelayTopBun = this.setAnimation(animationTimeStamp, this.initialCount+2.8);
 
-    this.opacityMainText = (animationTimeStamp)>0 && (animationTimeStamp)<0.6 ? animationTimeStamp*3 : 0;
+    this.opacityMainText = (animationTimeStamp)>0.9 && (animationTimeStamp)<1.5 ? animationTimeStamp*3 : 0;
 
     this.setTextVisibility(scrollHeight, isTelephone);
   }
@@ -92,63 +92,87 @@ export class ScrollingPictureTransitionComponent implements OnInit {
   }
 
   setTextVisibility(scrollHeight: number, isTelephone: boolean){
-    if (scrollHeight> 5075) {
-      this.isAllTextVisible(false);
-    }
-    else if (scrollHeight> 4925) {
-      this.showCustomerserviceText = false;
-      this.showGraphicdesignText = false;
-    }
-    else if (scrollHeight> 4825) {
-      this.showBackendText = false;
-      this.showApiText = false;
-    }
-    else if (scrollHeight> 4650) {
-      this.showDevopsText = false;
-      this.showFrontendText = false;
+    // Disparition des différents texts
+    console.log(scrollHeight)
 
-    } else if (scrollHeight> 4250) {
-      if (isTelephone) {
-        (scrollHeight > 4525) ? this.showUiuxText = false : this.showUiuxText = true;
-        ;
-        this.showSocialText = false;
+    // Apparition des différents texts
+    if (scrollHeight<3500) {
+      if (scrollHeight> 1600) {
+        this.showDevopsText = true;
       } else {
-        this.isAllTextVisible(true);
+        this.showDevopsText = false;
       }
-    } else if (scrollHeight> 3750) {
-      this.showUiuxText = false;
-      this.showSocialText = true;
-      isTelephone ? this.showCustomerserviceText = false : null;
 
-    } else if (scrollHeight> 3250) {
-      this.showSocialText = false;
-      this.showCustomerserviceText = true;
-      isTelephone ? this.showGraphicdesignText = false : null;
+      if (scrollHeight> 1800) {
+        this.showFrontendText = true;
+        isTelephone ? this.showDevopsText = false : null;
+      } else {
+        this.showFrontendText = false;
+      }
 
-    } else if (scrollHeight> 2750) {
-      this.showCustomerserviceText = false;
-      this.showGraphicdesignText = true;
-      isTelephone ? this.showApiText = false : null;
+      if (scrollHeight> 2000) {
+        this.showBackendText = true;
+        isTelephone ? this.showFrontendText = false : null;
+      } else {
+        this.showBackendText = false;
+      }
 
-    } else if (scrollHeight> 2250) {
-      this.showGraphicdesignText = false;
-      this.showApiText = true;
-      isTelephone ? this.showBackendText = false : null;
+      if (scrollHeight> 2300) {
+        this.showApiText = true;
+        isTelephone ? this.showBackendText = false : null;
+      } else {
+        this.showApiText = false;
+      }
 
-    } else if (scrollHeight> 1750) {
-      this.showApiText = false;
-      this.showBackendText = true;
-      isTelephone ? this.showFrontendText = false : null;
-    } else if (scrollHeight> 1250) {
-      this.showBackendText = false;
-      this.showFrontendText = true;
-      isTelephone ? this.showDevopsText = false : null;
-      this.showBackendText
-    } else if (scrollHeight> 750) {
-      this.showFrontendText = false;
-      this.showDevopsText = true;
-    } else {
-      this.showDevopsText = false;
+      if (scrollHeight> 2500) {
+        this.showGraphicdesignText = true;
+        isTelephone ? this.showApiText = false : null;
+      } else {
+        this.showGraphicdesignText = false;
+      }
+
+      if (scrollHeight> 2700) {
+        this.showCustomerserviceText = true;
+        isTelephone ? this.showGraphicdesignText = false : null;
+      } else {
+        this.showCustomerserviceText = false;
+      }
+
+      if (scrollHeight> 2900) {
+        this.showSocialText = true;
+        isTelephone ? this.showCustomerserviceText = false : null;
+      } else {
+        this.showSocialText = false;
+      }
+
+      if (scrollHeight> 3100) {
+        if (isTelephone) {
+          scrollHeight > 3075 ? this.showUiuxText = false : this.showUiuxText = true;
+          this.showSocialText = false;
+        } else {
+          this.isAllTextVisible(true);
+        }
+      } else {
+        this.showUiuxText = false;
+      }
+    }
+    else {
+      //Disparition des textes
+      if (scrollHeight> 4000) {
+        this.isAllTextVisible(false);
+      }
+      else if (scrollHeight> 3800) {
+        this.showCustomerserviceText = false;
+        this.showGraphicdesignText = false;
+      }
+      else if (scrollHeight> 3600) {
+        this.showBackendText = false;
+        this.showApiText = false;
+      }
+      else if (scrollHeight> 3500) {
+        this.showDevopsText = false;
+        this.showFrontendText = false;
+      }
     }
   }
 

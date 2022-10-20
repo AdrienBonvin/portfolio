@@ -24,15 +24,23 @@ h1 {
   width:80%;
 }
 
-strong {
+.hamburger-text {
   padding-left:1.3vh;
+  padding-right:1.3vh;
+  background-color: #ffffff;
+  color:#019494;
+}
+.hamburger-text:hover {
+  color: #ffffff;
+  background-color:#019494;
+  padding: 0;
 }
 
 .full-stack {
   text-align: center;
   font-size: 9.5vw;
   font-weight: bolder;
-  color:white;
+  color:rgba(255, 255, 255, 0.16);
   margin-bottom:-26.5vh;
   margin-top:10vh;
 }
@@ -122,7 +130,7 @@ h3 {
   width:40vh;
   height: 40.3vh;
   border-radius: 50%;;
-  background-color: #019494b4;
+  background-color: #019494e0;
   color:white;
   display:flex;
   flex-direction: column;
@@ -134,6 +142,12 @@ h3 {
 }
 .logo-tooltip p{
   padding:3vh;
+}
+.logo-tooltip strong {
+  padding-left:0.5vh;
+  padding-right:0.5vh;
+  background-color: #ffffff;
+  color:#019494;
 }
 
 

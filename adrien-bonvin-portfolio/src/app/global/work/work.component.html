@@ -1,0 +1,45 @@
+<div class="work-container">
+
+  <div class="project-container">
+    <div class="project" [ngStyle]="{ 'flex-direction' : flexDirection }">
+
+      <div class="project-text">
+        <h1>{{projectName}}</h1>
+        <h2>{{projectDescription}}</h2>
+      </div>
+
+      <div class="project-demo">
+          <div class="computer loaded opened" [ngClass]="{ 'computer-open' : openComputer }" [id]="mockupId" (mouseover)="hideMockupText=false" (mouseleave)="hideMockupText=true" (click)="goToWorkWebsite()">
+            <div class="part top">
+              <img src="https://d1xm195wioio0k.cloudfront.net/images/mockup/macbook-top.svg" alt="" class="top">
+              <img src="https://d1xm195wioio0k.cloudfront.net/images/mockup/macbook-cover.svg" alt="" class="cover">
+
+              <!--  -->
+
+              <video class="video-mockup" [muted]="'muted'" autoplay>
+                <source  [src]="projectMockup" type="video/mp4">
+              </video>
+
+            </div>
+            <div class="part bottom">
+              <img src="https://d1xm195wioio0k.cloudfront.net/images/mockup/macbook-cover.svg" alt="" class="cover">
+              <img src="https://d1xm195wioio0k.cloudfront.net/images/mockup/macbook-bottom.svg" alt="" class="bottom">
+            </div>
+            <div class="mockup-text" [ngClass]="{'hover-text' : hoverTextVisible}">Go to website</div>
+
+            <div class="mobile" [ngStyle]="{'opacity' : phoneOpacity }">
+              <div class="phone">
+                 <div class="phone-mirror">
+                     <div class="topWrapper">
+                         <div class="camera"></div>
+                         <div class="line-rec"></div>
+                     </div>
+                      <img class="video-mockup-phone" [src]="projectMockupMobile">
+                  </div>
+              </div>
+            </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
