@@ -1,9 +1,14 @@
+import { CommonModule } from '@angular/common';
 import { NgModule } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
 import { AppRoutingModule } from './app-routing.module';
 import { AppComponent } from './app.component';
-import { ScrollingPictureTransitionModule } from './global/scrolling-picture-transition/scrolling-picture-transition.module';
-import { MainPageModule } from './modules/main-page/hero-page/main-page.module';
+import { FullPageImgModule } from './global/hero/hero.module';
+import { ContactModule } from './global/contact/contact.module';
+import { FooterModule } from './global/footer/footer.module';
+import { HeaderModule } from './global/header/header/header.module';
+import { SkillsetModule } from './global/skillset/skillset.module';
+import { WorkSectionModule } from './global/work-section/work-section.module';
 
 @NgModule({
   declarations: [
@@ -13,9 +18,13 @@ import { MainPageModule } from './modules/main-page/hero-page/main-page.module';
     //Modules internes
     BrowserModule,
     AppRoutingModule,
-    MainPageModule,
-    ScrollingPictureTransitionModule
-
+    CommonModule,
+    HeaderModule,
+    SkillsetModule,
+    FooterModule,
+    ContactModule,
+    FullPageImgModule,
+    WorkSectionModule
     //Modules externes
   ],
   providers: [],

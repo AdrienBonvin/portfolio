@@ -13,9 +13,8 @@ export class WorkComponent implements OnInit {
   @Input() projectMockupMobile!:string;
   @Input() projectLink!:string;
   @Input() mockupId!:string;
-  @Input() flexDirection:string = 'row';
 
-
+  flexDirection:string = 'row';
   openComputer:boolean=false;
   hideMockupText=true;
   hoverTextVisible=false;
@@ -24,13 +23,14 @@ export class WorkComponent implements OnInit {
   constructor() { }
 
   ngOnInit(): void {
+    this.mockupId ? this.mockupId : '';
   }
 
   @HostListener('window:scroll', [])
   scroll(): void {
     let scrollHeight = window.scrollY - window.innerHeight;
-    document.getElementById(this.mockupId);
-    let position = document.getElementById(this.mockupId)?.getBoundingClientRect();
+    document.getElementById(this.mockupId!);
+    let position = document.getElementById(this.mockupId!)?.getBoundingClientRect();
     if(position!.top >= 0 && position!.bottom <= window.innerHeight) {
       this.openComputer = true;
       this.phoneOpacity='100%';

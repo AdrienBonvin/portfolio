@@ -18,9 +18,7 @@ export class ScrollAnimationDirective {
     } else {
       scroll = scroll;
       this.delay = scroll.toFixed(2)+'s';
-
     }
-
   }
 
   @HostBinding('style.animationDelay') get animationDelay(): string {

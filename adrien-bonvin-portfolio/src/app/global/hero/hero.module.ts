@@ -1,18 +1,16 @@
 import { NgModule } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { WorkComponent } from './work.component';
+import { FullPageImgComponent } from './hero.component';
 
 
 
 @NgModule({
-  declarations: [
-    WorkComponent
-  ],
+  declarations: [FullPageImgComponent],
   imports: [
     CommonModule
   ],
   exports: [
-    WorkComponent
+    FullPageImgComponent
   ]
 })
-export class WorkModule { }
+export class FullPageImgModule { }
