@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <defs>
+    <radialGradient id="planet" cx="35%" cy="30%" r="85%">
+      <stop offset="0%" stop-color="#d8b4fe"/>
+      <stop offset="45%" stop-color="#a855f7"/>
+      <stop offset="100%" stop-color="#6d28d9"/>
+    </radialGradient>
+  </defs>
+  <!-- back half of the ring, darker (passes behind the planet) -->
+  <g transform="rotate(-18 16 16)">
+    <path d="M2 16 A 14 4.6 0 0 1 30 16" fill="none" stroke="#0e7490" stroke-width="2.4"/>
+  </g>
+  <circle cx="16" cy="16" r="11" fill="url(#planet)"/>
+  <!-- front half of the ring, bright neon -->
+  <g transform="rotate(-18 16 16)">
+    <path d="M2 16 A 14 4.6 0 0 0 30 16" fill="none" stroke="#22d3ee" stroke-width="2.4" stroke-linecap="round"/>
+  </g>
+</svg>

@@ -1,0 +1,66 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-neon-violet: #a855f7;
+  --color-neon-cyan: #22d3ee;
+  --color-neon-pink: #f472b6;
+  --color-void: #050510;
+  --font-display: 'Space Grotesk', system-ui, sans-serif;
+}
+
+body {
+  background: var(--color-void);
+  color: white;
+  font-family: var(--font-display);
+}
+
+/* the mini-map replaces the browser scrollbar */
+html {
+  scrollbar-width: none;
+}
+
+::-webkit-scrollbar {
+  display: none;
+}
+
+::selection {
+  background: var(--color-neon-violet);
+  color: white;
+}
+
+/* keeps floating text readable over the starfield */
+.holo-text {
+  text-shadow:
+    0 2px 24px rgba(5, 5, 16, 0.95),
+    0 0 10px rgba(5, 5, 16, 0.9);
+}
+
+/* no I-beam on the floating texts — the neon dot cursor does the job */
+main,
+main * {
+  cursor: default;
+}
+
+main a,
+main button {
+  cursor: pointer;
+}
+
+/* hero name letters jump and glow under the pointer */
+.hero-letter {
+  display: inline-block;
+  transition:
+    transform 0.2s ease,
+    filter 0.2s ease;
+}
+
+.hero-letter:hover {
+  transform: translateY(-10px) skewX(-8deg) scale(1.12);
+  filter: drop-shadow(0 0 16px #22d3ee);
+}
+
+/* giant outlined section number behind titles */
+.ghost-number {
+  color: transparent;
+  -webkit-text-stroke: 1.5px rgba(168, 85, 247, 0.3);
+}
