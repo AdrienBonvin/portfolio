@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Float, Grid, Html, Stars, Trail, useCursor } from '@react-three/drei';
 import { Bloom, EffectComposer } from '@react-three/postprocessing';
@@ -211,40 +211,33 @@ const rand01 = (i: number, salt: number) => {
   return x - Math.floor(x);
 };
 
-// Small rocks scattered along the whole camera path.
-type Rock = {
-  position: [number, number, number];
-  rotation: [number, number, number];
-  scale: number;
-};
+// Small rocks scattered along the whole camera path — one InstancedMesh, one draw call.
+const Asteroids = ({ xFactor, count }: { xFactor: number; count: number }) => {
+  const mesh = useRef<THREE.InstancedMesh>(null);
 
-const Asteroids = ({ xFactor }: { xFactor: number }) => {
-  const rocks = useMemo(
-    () =>
-      Array.from({ length: 40 }, (_, i): Rock => {
-        const side = rand01(i, 1) > 0.5 ? 1 : -1;
-        return {
-          position: [
-            side * (2.5 + rand01(i, 2) * 12) * xFactor,
-            rand01(i, 3) * 9 - 1,
-            4 - rand01(i, 4) * 72,
-          ],
-          rotation: [rand01(i, 5) * Math.PI, rand01(i, 6) * Math.PI, 0],
-          scale: 0.12 + rand01(i, 7) * 0.3,
-        };
-      }),
-    [xFactor],
-  );
+  useLayoutEffect(() => {
+    if (!mesh.current) return;
+    const dummy = new THREE.Object3D();
+    for (let i = 0; i < count; i++) {
+      const side = rand01(i, 1) > 0.5 ? 1 : -1;
+      dummy.position.set(
+        side * (2.5 + rand01(i, 2) * 12) * xFactor,
+        rand01(i, 3) * 9 - 1,
+        4 - rand01(i, 4) * 72,
+      );
+      dummy.rotation.set(rand01(i, 5) * Math.PI, rand01(i, 6) * Math.PI, 0);
+      dummy.scale.setScalar(0.12 + rand01(i, 7) * 0.3);
+      dummy.updateMatrix();
+      mesh.current.setMatrixAt(i, dummy.matrix);
+    }
+    mesh.current.instanceMatrix.needsUpdate = true;
+  }, [xFactor, count]);
 
   return (
-    <>
-      {rocks.map((rock, i) => (
-        <mesh key={i} position={rock.position} rotation={rock.rotation} scale={rock.scale}>
-          <dodecahedronGeometry args={[1, 0]} />
-          <meshStandardMaterial color="#1a1830" emissive="#8b8ba7" emissiveIntensity={0.3} />
-        </mesh>
-      ))}
-    </>
+    <instancedMesh key={count} ref={mesh} args={[undefined, undefined, count]}>
+      <dodecahedronGeometry args={[1, 0]} />
+      <meshStandardMaterial color="#1a1830" emissive="#8b8ba7" emissiveIntensity={0.3} />
+    </instancedMesh>
   );
 };
 
@@ -1188,7 +1181,8 @@ export const PortfolioScene = () => {
   <div className="fixed inset-0 -z-0">
     <Canvas
       camera={{ position: [0, 1.4, 8], fov: 60 }}
-      dpr={[1, 1.25]}
+      // mobile GPUs: native-ish resolution is too heavy with bloom, render at dpr 1
+      dpr={portrait ? 1 : [1, 1.25]}
       gl={{ antialias: false, powerPreference: 'high-performance' }}
       onPointerMissed={launchComet}
     >
@@ -1242,7 +1236,7 @@ export const PortfolioScene = () => {
         />
       ))}
 
-      <Asteroids xFactor={xFactor} />
+      <Asteroids xFactor={xFactor} count={portrait ? 24 : 40} />
       <WarpLines />
       <Comet color="#22d3ee" speed={0.35} phase={0} altitude={4} xAmp={16 * xFactor} />
       <Comet color="#f472b6" speed={0.25} phase={Math.PI} altitude={6} xAmp={16 * xFactor} />

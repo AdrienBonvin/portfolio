@@ -21,7 +21,8 @@ const Section = ({ index, title, align = 'left', mobileHint, children }: Section
     align === 'center' ? 'mx-auto text-center' : align === 'right' ? 'ml-auto' : 'mr-auto';
 
   return (
-    <section className="flex min-h-screen items-center px-6 py-24 md:px-12">
+    // svh: sized to the small viewport so the collapsing mobile URL bar never shifts the layout
+    <section className="flex min-h-svh items-center px-6 py-24 md:min-h-screen md:px-12">
       {/* max-w-6xl keeps content near the center on ultrawide screens */}
       <div className="mx-auto w-full max-w-6xl">
         {/* pointer-events: none on mobile so taps reach the 3D objects behind the
@@ -139,7 +140,7 @@ export const App = () => {
       {/* pointer-events-none lets hovers/clicks reach the 3D canvas; cards re-enable them */}
       <main className="pointer-events-none relative z-10">
         {/* Hero */}
-        <section className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
+        <section className="flex min-h-svh flex-col items-center justify-center px-6 text-center md:min-h-screen">
           <p className="mb-4 text-sm tracking-[0.4em] text-neon-cyan uppercase">{t.hero.kicker}</p>
           <HeroName />
           <p className="mt-6 max-w-md text-lg text-white/70">{t.hero.tagline}</p>
