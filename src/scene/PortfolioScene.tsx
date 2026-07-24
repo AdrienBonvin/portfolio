@@ -329,21 +329,28 @@ const Galaxy = ({ position }: { position: [number, number, number] }) => {
 };
 
 // fadeWindow (mobile): [inStart, inEnd, outStart, outEnd] in journey progress.
-// The object is hidden while its section's text is on screen, grows in as the
-// spacer screen approaches, then shrinks away before the camera plows through it.
+// The object grows in as its title screen approaches, then slides out of view
+// sideways while the user scrolls down into the section's text.
 type CelestialProps = {
   position: [number, number, number];
   scale?: number;
   fadeWindow?: [number, number, number, number];
 };
 
-const fadeFactor = (fadeWindow?: [number, number, number, number]) => {
-  if (!fadeWindow) return 1;
+const SLIDE_DISTANCE = 8;
+
+// scale: entrance growth · slide: lateral exit offset · visible: skip render/raycast
+const stageFactors = (fadeWindow: [number, number, number, number] | undefined, x: number) => {
+  if (!fadeWindow) return { scale: 1, slideX: 0, visible: true };
   const progress = scrollState.progress;
-  return (
-    THREE.MathUtils.smoothstep(progress, fadeWindow[0], fadeWindow[1]) *
-    (1 - THREE.MathUtils.smoothstep(progress, fadeWindow[2], fadeWindow[3]))
-  );
+  const grow = THREE.MathUtils.smoothstep(progress, fadeWindow[0], fadeWindow[1]);
+  const out = THREE.MathUtils.smoothstep(progress, fadeWindow[2], fadeWindow[3]);
+  const direction = x >= 0 ? 1 : -1;
+  return {
+    scale: grow,
+    slideX: out * SLIDE_DISTANCE * direction,
+    visible: grow > 0.02 && out < 0.999,
+  };
 };
 
 // Ringed planet — companion of the "À propos" section. Click: the rings spin wildly.
@@ -358,9 +365,10 @@ const Planet = ({ position, scale = 1, fadeWindow }: CelestialProps) => {
   useFrame((_, delta) => {
     if (planet.current) {
       planet.current.rotation.y += delta * 0.15;
-      const fade = fadeFactor(fadeWindow);
-      planet.current.scale.setScalar(scale * fade);
-      planet.current.visible = fade > 0.02;
+      const stage = stageFactors(fadeWindow, position[0]);
+      planet.current.scale.setScalar(scale * stage.scale);
+      planet.current.position.x = position[0] + stage.slideX;
+      planet.current.visible = stage.visible;
     }
     if (rings.current) rings.current.rotation.z += delta * (0.1 + ringBoost.current);
     if (moonOrbit.current) moonOrbit.current.rotation.y += delta * 0.45;
@@ -489,9 +497,10 @@ const BlackHole = ({ position, scale = 1, fadeWindow }: CelestialProps) => {
 
   useFrame((_, delta) => {
     if (root.current) {
-      const fade = fadeFactor(fadeWindow);
-      root.current.scale.setScalar(scale * fade);
-      root.current.visible = fade > 0.02;
+      const stage = stageFactors(fadeWindow, position[0]);
+      root.current.scale.setScalar(scale * stage.scale);
+      root.current.position.x = position[0] + stage.slideX;
+      root.current.visible = stage.visible;
     }
     if (disk.current) disk.current.rotation.z += delta * (suckT.current >= 0 ? 4 : 0.8);
     if (!swirl.current) return;
@@ -604,9 +613,10 @@ const Supernova = ({ position, scale = 1, fadeWindow }: CelestialProps) => {
   useFrame(({ clock }, delta) => {
     const t = clock.elapsedTime;
     if (root.current) {
-      const fade = fadeFactor(fadeWindow);
-      root.current.scale.setScalar(scale * fade);
-      root.current.visible = fade > 0.02;
+      const stage = stageFactors(fadeWindow, position[0]);
+      root.current.scale.setScalar(scale * stage.scale);
+      root.current.position.x = position[0] + stage.slideX;
+      root.current.visible = stage.visible;
     }
     flash.current = THREE.MathUtils.damp(flash.current, 0, 2.5, delta);
     if (core.current) {
@@ -716,6 +726,7 @@ type ConstellationLogo = {
   mobilePosition: [number, number, number]; // 2×2 grid on portrait screens
   phase: number; // desynchronizes the wander so logos never move in lockstep
   wander?: number; // horizontal drift amplitude
+  baseScale?: number; // overall size (slightly smaller on mobile)
 };
 
 const CONTACT_LOGOS: ConstellationLogo[] = [
@@ -724,7 +735,7 @@ const CONTACT_LOGOS: ConstellationLogo[] = [
     href: LINKS.email,
     salt: 60,
     position: [-6.3, -2.1, -57.5],
-    mobilePosition: [-1.3, -1.4, -57.5],
+    mobilePosition: [-1.15, -1.4, -57.5],
     phase: 0,
     outline: {
       points: [
@@ -754,7 +765,7 @@ const CONTACT_LOGOS: ConstellationLogo[] = [
     href: LINKS.github,
     salt: 61,
     position: [-2.1, -2.1, -56.5],
-    mobilePosition: [1.3, -1.4, -56.8],
+    mobilePosition: [1.15, -1.4, -56.8],
     phase: 2.1,
     outline: {
       // octocat head: wide cheeks, two pointy ears, rounded chin
@@ -803,7 +814,7 @@ const CONTACT_LOGOS: ConstellationLogo[] = [
     href: LINKS.linkedin,
     salt: 62,
     position: [2.1, -2.1, -57.2],
-    mobilePosition: [-1.3, -3, -57.2],
+    mobilePosition: [-1.15, -3, -57.2],
     phase: 4.2,
     outline: {
       points: [
@@ -843,7 +854,7 @@ const CONTACT_LOGOS: ConstellationLogo[] = [
     href: LINKS.youtube,
     salt: 63,
     position: [6.3, -2.1, -56.8],
-    mobilePosition: [1.3, -3, -56.5],
+    mobilePosition: [1.15, -3, -56.5],
     phase: 5.6,
     outline: {
       points: [
@@ -882,7 +893,11 @@ const toSegments = (points: THREE.Vector3[], closed: boolean) => {
 // section — otherwise they can be hovered/clicked from way back in the scene.
 const nearJourneyEnd = () => scrollState.progress > 0.82;
 
-const Constellation = ({ label, href, salt, outline, inner = [], extraStars = [], position, phase, wander = 1.4 }: Omit<ConstellationLogo, 'mobilePosition'>) => {
+// On touch, only one constellation stays lit at a time: tapping another one
+// (or empty space) releases the previous selection.
+const touchSelection = { label: null as string | null };
+
+const Constellation = ({ label, href, salt, outline, inner = [], extraStars = [], position, phase, wander = 1.4, baseScale = 1 }: Omit<ConstellationLogo, 'mobilePosition'>) => {
   const group = useRef<THREE.Group>(null);
   const starsMaterial = useRef<THREE.PointsMaterial>(null);
   const lineMaterials = useRef<(THREE.LineBasicMaterial | null)[]>([]);
@@ -944,6 +959,7 @@ const Constellation = ({ label, href, salt, outline, inner = [], extraStars = []
   useFrame(({ clock }, delta) => {
     if (!group.current) return;
     if (hovered && !nearJourneyEnd()) setHovered(false);
+    if (touch && hovered && touchSelection.label !== label) setHovered(false);
     const t = clock.elapsedTime + phase;
     // slow drift across the lower part of the view, like a wandering constellation
     group.current.position.set(
@@ -955,7 +971,7 @@ const Constellation = ({ label, href, salt, outline, inner = [], extraStars = []
     // gentle sway around Y so the parallax reveals the stars' depth
     group.current.rotation.y = Math.sin(t * 0.21) * 0.22;
 
-    const targetScale = hovered ? 1.25 : 1;
+    const targetScale = baseScale * (hovered ? 1.25 : 1);
     group.current.scale.setScalar(
       THREE.MathUtils.damp(group.current.scale.x, targetScale, 6, delta),
     );
@@ -1005,6 +1021,7 @@ const Constellation = ({ label, href, salt, outline, inner = [], extraStars = []
         e.stopPropagation();
         // on touch, the first tap lights the constellation up, the second opens it
         if (touch && !hovered) {
+          touchSelection.label = label;
           setHovered(true);
           return;
         }
@@ -1147,6 +1164,8 @@ export const PortfolioScene = () => {
 
   // Fired by R3F only when a click hits no 3D object.
   const launchComet = (event: MouseEvent) => {
+    // tapping empty space releases the lit constellation
+    touchSelection.label = null;
     const camera = cameraRef.current;
     if (!camera) return;
     const ndcX = (event.clientX / window.innerWidth) * 2 - 1;
@@ -1194,23 +1213,23 @@ export const PortfolioScene = () => {
         />
       ))}
 
-      {/* mobile: each object is staged full-frame on its spacer screen (camera stops
-          at z = 8 - progress·56, spacers at stops 2/7, 4/7 and 6/7 → z -8, -24, -40),
-          then shrinks away before the camera reaches the next section */}
+      {/* mobile: each object stars on its section's title screen (camera stops at
+          progress 1/4, 2/4, 3/4 → z -6, -20, -34), centered below the title, then
+          fades away as the user scrolls down into the section's text */}
       <Planet
-        position={portrait ? [0.4, 1.4, -17] : [5.5, 2, -20]}
-        scale={portrait ? 0.85 : 1}
-        fadeWindow={portrait ? [0.19, 0.27, 0.31, 0.41] : undefined}
+        position={portrait ? [0.3, -1, -15] : [5.5, 2, -20]}
+        scale={portrait ? 0.7 : 1}
+        fadeWindow={portrait ? [0.16, 0.23, 0.265, 0.325] : undefined}
       />
       <BlackHole
-        position={portrait ? [-0.4, 1.4, -33] : [-8, 4, -35]}
-        scale={portrait ? 0.8 : 1}
-        fadeWindow={portrait ? [0.47, 0.55, 0.6, 0.7] : undefined}
+        position={portrait ? [-0.3, -1, -29] : [-8, 4, -35]}
+        scale={portrait ? 0.7 : 1}
+        fadeWindow={portrait ? [0.41, 0.48, 0.515, 0.575] : undefined}
       />
       <Supernova
-        position={portrait ? [0.4, 1.5, -49] : [12, 3.5, -48]}
-        scale={portrait ? 0.8 : 1}
-        fadeWindow={portrait ? [0.76, 0.84, 0.88, 0.96] : undefined}
+        position={portrait ? [0.3, -0.9, -43] : [12, 3.5, -48]}
+        scale={portrait ? 0.7 : 1}
+        fadeWindow={portrait ? [0.66, 0.73, 0.765, 0.825] : undefined}
       />
       <Galaxy position={[0, 6, -66]} />
       {CONTACT_LOGOS.map((logo) => (
@@ -1218,7 +1237,8 @@ export const PortfolioScene = () => {
           key={logo.label}
           {...logo}
           position={portrait ? logo.mobilePosition : logo.position}
-          wander={portrait ? 0.35 : 1.4}
+          wander={portrait ? 0.15 : 1.4}
+          baseScale={portrait ? 0.8 : 1}
         />
       ))}
 

@@ -4,17 +4,19 @@ import { CursorGlow } from './CursorGlow';
 import { MiniMap } from './MiniMap';
 import { LangToggle } from './LangToggle';
 import { journeyProgress, scrollState } from './scrollState';
-import { useIsMobile } from './useIsMobile';
 import { useT, LINKS } from './i18n';
 
 type SectionProps = {
   index: string;
   title: string;
   align?: 'left' | 'right' | 'center';
+  // mobile: the title becomes a full-screen opener scene starring the section's
+  // celestial object (staged by the 3D scene), with a small tap invitation
+  mobileHint?: string;
   children: ReactNode;
 };
 
-const Section = ({ index, title, align = 'left', children }: SectionProps) => {
+const Section = ({ index, title, align = 'left', mobileHint, children }: SectionProps) => {
   const placement =
     align === 'center' ? 'mx-auto text-center' : align === 'right' ? 'ml-auto' : 'mr-auto';
 
@@ -22,20 +24,35 @@ const Section = ({ index, title, align = 'left', children }: SectionProps) => {
     <section className="flex min-h-screen items-center px-6 py-24 md:px-12">
       {/* max-w-6xl keeps content near the center on ultrawide screens */}
       <div className="mx-auto w-full max-w-6xl">
-        <div className={`pointer-events-auto relative w-full max-w-2xl ${placement}`}>
-          <span
-            aria-hidden
-            className="ghost-number absolute -top-20 -left-2 text-[9rem] font-bold select-none md:-top-28 md:text-[13rem]"
-          >
-            {index}
-          </span>
-          <h2 className="relative mb-4 bg-gradient-to-r from-neon-violet via-white to-neon-cyan bg-clip-text text-5xl font-bold text-transparent drop-shadow-[0_0_30px_rgba(168,85,247,0.5)] md:text-7xl">
-            {title}
-          </h2>
+        {/* pointer-events: none on mobile so taps reach the 3D objects behind the
+            full-screen title block — only the actual content re-enables them */}
+        <div className={`pointer-events-none w-full max-w-2xl md:pointer-events-auto ${placement}`}>
           <div
-            className={`mb-10 h-px w-44 bg-gradient-to-r from-neon-cyan to-transparent shadow-[0_0_12px_#22d3ee] ${align === 'center' ? 'mx-auto' : ''}`}
-          />
-          <div className="holo-text">{children}</div>
+            className={
+              mobileHint ? 'flex h-svh flex-col justify-start pt-28 md:block md:h-auto md:pt-0' : ''
+            }
+          >
+            <div className="relative">
+              <span
+                aria-hidden
+                className="ghost-number absolute -top-20 -left-2 text-[9rem] font-bold select-none md:-top-28 md:text-[13rem]"
+              >
+                {index}
+              </span>
+              <h2 className="relative mb-4 bg-gradient-to-r from-neon-violet via-white to-neon-cyan bg-clip-text text-5xl font-bold text-transparent drop-shadow-[0_0_30px_rgba(168,85,247,0.5)] md:text-7xl">
+                {title}
+              </h2>
+              <div
+                className={`mb-10 h-px w-44 bg-gradient-to-r from-neon-cyan to-transparent shadow-[0_0_12px_#22d3ee] ${align === 'center' ? 'mx-auto' : ''}`}
+              />
+              {mobileHint && (
+                <p className="animate-pulse text-xs font-bold tracking-[0.3em] text-neon-cyan/70 uppercase md:hidden">
+                  {mobileHint}
+                </p>
+              )}
+            </div>
+          </div>
+          <div className="holo-text pointer-events-auto">{children}</div>
         </div>
       </div>
     </section>
@@ -58,7 +75,7 @@ const lerpColor = (from: string, to: string, t: number) => {
 const HeroName = () => {
   const lastName = 'Bonvin';
   return (
-    <h1 className="pointer-events-auto text-6xl font-bold md:text-8xl">
+    <h1 className="pointer-events-auto text-[2.5rem] font-bold whitespace-nowrap sm:text-6xl md:text-8xl">
       {'Adrien'.split('').map((letter, i) => (
         <span key={i} className="hero-letter">
           {letter}
@@ -76,16 +93,6 @@ const HeroName = () => {
     </h1>
   );
 };
-
-// Mobile-only breathing room: a full empty screen where the camera pauses on the
-// section's celestial object, front and center, with a tap invitation.
-const SpacerSection = ({ hint }: { hint: string }) => (
-  <section className="flex h-screen items-end justify-center pb-36">
-    <p className="animate-pulse text-sm font-bold tracking-[0.3em] text-neon-cyan/70 uppercase">
-      {hint}
-    </p>
-  </section>
-);
 
 const TagPills = ({ tags }: { tags: string[] }) => (
   <div className="mt-2 flex flex-wrap gap-2">
@@ -108,7 +115,6 @@ const ExternalLink = ({ href, children, className }: { href: string; children: R
 
 export const App = () => {
   const t = useT();
-  const isMobile = useIsMobile();
 
   useEffect(() => {
     const onScroll = () => {
@@ -140,7 +146,7 @@ export const App = () => {
           <div className="mt-16 animate-bounce text-white/50">{t.hero.scroll}</div>
         </section>
 
-        <Section index="01" title={t.about.title}>
+        <Section index="01" title={t.about.title} mobileHint={t.spacers.planet}>
           <p className="text-xl leading-relaxed text-white/85">
             {t.about.before}
             <ExternalLink
@@ -153,9 +159,12 @@ export const App = () => {
           </p>
         </Section>
 
-        {isMobile && <SpacerSection hint={t.spacers.planet} />}
-
-        <Section index="02" title={t.experience.title} align="right">
+        <Section
+          index="02"
+          title={t.experience.title}
+          align="right"
+          mobileHint={t.spacers.blackHole}
+        >
           <div className="space-y-10">
             {t.experience.entries.map((entry) => (
               <div key={entry.title}>
@@ -168,9 +177,7 @@ export const App = () => {
           </div>
         </Section>
 
-        {isMobile && <SpacerSection hint={t.spacers.blackHole} />}
-
-        <Section index="03" title={t.projects.title}>
+        <Section index="03" title={t.projects.title} mobileHint={t.spacers.supernova}>
           <div className="space-y-10">
             {t.projects.items.map((project) => (
               <div key={project.title}>
@@ -192,8 +199,6 @@ export const App = () => {
             ))}
           </div>
         </Section>
-
-        {isMobile && <SpacerSection hint={t.spacers.supernova} />}
 
         <Section index="04" title={t.contact.title} align="center">
           <p className="text-xl text-white/85">{t.contact.text}</p>

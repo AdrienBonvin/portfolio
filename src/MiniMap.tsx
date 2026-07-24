@@ -1,7 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useT } from './i18n';
 import { journeyProgress, sectionTops } from './scrollState';
-import { useIsMobile } from './useIsMobile';
 
 type Stop = { color: string; icon: ReactNode };
 
@@ -63,7 +62,6 @@ const STOPS: Stop[] = [
 export const MiniMap = () => {
   const [progress, setProgress] = useState(0);
   const labels = useT().minimap;
-  const isMobile = useIsMobile();
 
   useEffect(() => {
     const onScroll = () => setProgress(journeyProgress());
@@ -77,11 +75,8 @@ export const MiniMap = () => {
   }, []);
 
   const active = Math.round(progress * (STOPS.length - 1));
-  const jump = (index: number) => {
-    // on mobile, spacer sections sit between the content ones
-    const domIndex = isMobile ? [0, 1, 3, 5, 7][index] : index;
-    window.scrollTo({ top: sectionTops()[domIndex] ?? 0, behavior: 'smooth' });
-  };
+  const jump = (index: number) =>
+    window.scrollTo({ top: sectionTops()[index] ?? 0, behavior: 'smooth' });
 
   return (
     <nav className="fixed bottom-4 left-1/2 z-40 -translate-x-1/2 md:bottom-7">

@@ -14,6 +14,14 @@ body {
   font-family: var(--font-display);
 }
 
+/* the 3D canvas is fixed full-screen; nothing should ever scroll sideways,
+   and no elastic bounce at the ends of the journey */
+html,
+body {
+  overflow-x: clip;
+  overscroll-behavior: none;
+}
+
 /* the mini-map replaces the browser scrollbar */
 html {
   scrollbar-width: none;
