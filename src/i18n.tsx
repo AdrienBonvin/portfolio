@@ -22,6 +22,7 @@ type Project = {
 };
 
 export type Dictionary = {
+  meta: { title: string; description: string };
   hero: { kicker: string; tagline: string; scroll: string };
   about: { title: string; before: string; youtube: string; after: string };
   experience: { title: string; entries: Entry[] };
@@ -32,6 +33,11 @@ export type Dictionary = {
 };
 
 const fr: Dictionary = {
+  meta: {
+    title: 'Adrien Bonvin — Développeur Frontend Senior React',
+    description:
+      "Portfolio d'Adrien Bonvin, développeur frontend senior React à Nantes. 8 ans à construire des interfaces, expert React/TypeScript, explorateur IA. Embarquez pour un voyage spatial interactif en 3D.",
+  },
   hero: {
     kicker: 'Développeur Frontend',
     tagline: '8 ans à construire des interfaces. Expert React, explorateur IA.',
@@ -98,6 +104,11 @@ const fr: Dictionary = {
 };
 
 const en: Dictionary = {
+  meta: {
+    title: 'Adrien Bonvin — Senior Frontend Developer (React)',
+    description:
+      "Adrien Bonvin's portfolio — senior React frontend developer in Nantes, France. 8 years building interfaces, React/TypeScript expert, AI explorer. Hop in for an interactive 3D space journey.",
+  },
   hero: {
     kicker: 'Frontend Developer',
     tagline: '8 years building interfaces. React expert, AI explorer.',
@@ -183,6 +194,10 @@ export const LangProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     document.documentElement.lang = lang;
+    document.title = dictionaries[lang].meta.title;
+    document
+      .querySelector('meta[name="description"]')
+      ?.setAttribute('content', dictionaries[lang].meta.description);
   }, [lang]);
 
   // persisted only on manual toggle, so auto-detection keeps working until then
