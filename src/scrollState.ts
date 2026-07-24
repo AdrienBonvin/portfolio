@@ -17,7 +17,12 @@ export const sectionTops = () => {
 };
 
 if (typeof window !== 'undefined') {
+  // Only invalidate on real layout changes (width). On mobile the collapsing URL
+  // bar fires resize with height-only changes — ignoring those avoids the jump.
+  let lastWidth = window.innerWidth;
   window.addEventListener('resize', () => {
+    if (window.innerWidth === lastWidth) return;
+    lastWidth = window.innerWidth;
     tops = [];
   });
 }

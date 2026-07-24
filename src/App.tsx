@@ -121,12 +121,19 @@ export const App = () => {
     const onScroll = () => {
       scrollState.progress = journeyProgress();
     };
+    // Height-only resizes (mobile URL bar) must not recompute progress: it jumps.
+    let lastWidth = window.innerWidth;
+    const onResize = () => {
+      if (window.innerWidth === lastWidth) return;
+      lastWidth = window.innerWidth;
+      onScroll();
+    };
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', onScroll);
+    window.addEventListener('resize', onResize);
     return () => {
       window.removeEventListener('scroll', onScroll);
-      window.removeEventListener('resize', onScroll);
+      window.removeEventListener('resize', onResize);
     };
   }, []);
 

@@ -15,7 +15,13 @@ const useAspect = () => {
     () => window.innerWidth / Math.max(1, window.innerHeight),
   );
   useEffect(() => {
-    const onResize = () => setAspect(window.innerWidth / Math.max(1, window.innerHeight));
+    // Ignore height-only resizes (mobile URL bar collapsing) to avoid a scene jump.
+    let lastWidth = window.innerWidth;
+    const onResize = () => {
+      if (window.innerWidth === lastWidth) return;
+      lastWidth = window.innerWidth;
+      setAspect(window.innerWidth / Math.max(1, window.innerHeight));
+    };
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
@@ -43,6 +49,11 @@ const CameraRig = () => {
   const look = useRef(new THREE.Vector3(0, 1, -4));
   const lean = useRef(new THREE.Vector3());
   const prevScrollY = useRef(0);
+  // On touch the warp is the main jank source on fast flicks: trigger it later
+  // and ramp it slower so it never spikes right when frames are already tight.
+  const touch = isTouchDevice();
+  const warpFloor = touch ? 2600 : 1200;
+  const warpSpan = touch ? 4200 : 3300;
 
   useFrame(({ camera }, delta) => {
     const targetZ = 8 - scrollState.progress * SECTION_DEPTH * (SECTION_COUNT - 1);
@@ -77,7 +88,7 @@ const CameraRig = () => {
     const scrollY = window.scrollY;
     const velocity = Math.abs(scrollY - prevScrollY.current) / Math.max(delta, 0.001);
     prevScrollY.current = scrollY;
-    const warpTarget = THREE.MathUtils.clamp((velocity - 1200) / 3300, 0, 1);
+    const warpTarget = THREE.MathUtils.clamp((velocity - warpFloor) / warpSpan, 0, 1);
     warpState.speed = THREE.MathUtils.damp(warpState.speed, warpTarget, 4, delta);
     if (camera instanceof THREE.PerspectiveCamera) {
       camera.fov = THREE.MathUtils.damp(camera.fov, 60 + warpState.speed * 18, 3, delta);
@@ -267,11 +278,10 @@ const Comet = ({ color, speed, phase, altitude, xAmp }: CometProps) => {
 };
 
 // Spiral galaxy made of ~1800 additive particles — the journey's final destination.
-const Galaxy = ({ position }: { position: [number, number, number] }) => {
+const Galaxy = ({ position, count = 4000 }: { position: [number, number, number]; count?: number }) => {
   const points = useRef<THREE.Points>(null);
 
   const geometry = useMemo(() => {
-    const count = 4000;
     const positions = new Float32Array(count * 3);
     const colors = new Float32Array(count * 3);
     const inner = new THREE.Color('#f472b6');
@@ -297,7 +307,7 @@ const Galaxy = ({ position }: { position: [number, number, number] }) => {
     geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     return geo;
-  }, []);
+  }, [count]);
 
   useFrame((_, delta) => {
     if (!points.current) return;
@@ -1181,8 +1191,8 @@ export const PortfolioScene = () => {
   <div className="fixed inset-0 -z-0">
     <Canvas
       camera={{ position: [0, 1.4, 8], fov: 60 }}
-      // mobile GPUs: native-ish resolution is too heavy with bloom, render at dpr 1
-      dpr={portrait ? 1 : [1, 1.25]}
+      // mobile: dpr 1 is too pixelated, native dpr too heavy with bloom — cap at 1.5
+      dpr={portrait ? Math.min(1.5, window.devicePixelRatio) : [1, 1.25]}
       gl={{ antialias: false, powerPreference: 'high-performance' }}
       onPointerMissed={launchComet}
     >
@@ -1225,7 +1235,7 @@ export const PortfolioScene = () => {
         scale={portrait ? 0.7 : 1}
         fadeWindow={portrait ? [0.66, 0.73, 0.765, 0.825] : undefined}
       />
-      <Galaxy position={[0, 6, -66]} />
+      <Galaxy position={[0, 6, -66]} count={portrait ? 2200 : 4000} />
       {CONTACT_LOGOS.map((logo) => (
         <Constellation
           key={logo.label}
@@ -1260,7 +1270,7 @@ export const PortfolioScene = () => {
         infiniteGrid
       />
 
-      <Stars radius={80} depth={60} count={portrait ? 1500 : 2500} factor={4} fade speed={0.6} />
+      <Stars radius={80} depth={60} count={portrait ? 900 : 2500} factor={4} fade speed={0.6} />
 
       <EffectComposer multisampling={0}>
         <Bloom intensity={1.1} luminanceThreshold={0.15} mipmapBlur />
