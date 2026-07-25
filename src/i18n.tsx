@@ -28,7 +28,6 @@ export type Dictionary = {
   experience: { title: string; entries: Entry[] };
   projects: { title: string; items: Project[] };
   contact: { title: string; text: string; hint: string };
-  spacers: { planet: string; blackHole: string; supernova: string };
   minimap: string[];
 };
 
@@ -95,11 +94,6 @@ const fr: Dictionary = {
     text: 'Envie d’échanger ?',
     hint: '✨ Attrapez une constellation',
   },
-  spacers: {
-    planet: '✦ Touchez la planète',
-    blackHole: '✦ Touchez le trou noir',
-    supernova: '✦ Touchez la supernova',
-  },
   minimap: ['Départ', 'À propos', 'Expérience', 'Projets', 'Contact'],
 };
 
@@ -165,11 +159,6 @@ const en: Dictionary = {
     title: 'Contact',
     text: 'Let’s talk?',
     hint: '✨ Catch a constellation',
-  },
-  spacers: {
-    planet: '✦ Tap the planet',
-    blackHole: '✦ Tap the black hole',
-    supernova: '✦ Tap the supernova',
   },
   minimap: ['Start', 'About', 'Experience', 'Projects', 'Contact'],
 };
