@@ -566,7 +566,7 @@ const Planet = ({ position, scale = 1, mobile }: CelestialProps) => {
   const ringGeometry = useMemo(
     () =>
       orbitGeometry({
-        count: mobile ? 2200 : 2800,
+        count: mobile ? 1650 : 2800,
         inner: RING_INNER,
         outer: RING_OUTER,
         gap: RING_GAP,
@@ -915,6 +915,7 @@ const BlackHole = ({ position, scale = 1, mobile }: CelestialProps) => {
       }
     }
     if (photonRing.current && photonMaterial.current) {
+      photonRing.current.lookAt(camera.position);
       const flareScale = 1 + flare.current * 0.35;
       photonRing.current.scale.set(flareScale, flareScale, 1);
       photonMaterial.current.opacity = Math.min(1, 0.85 + flare.current);
@@ -969,19 +970,6 @@ const BlackHole = ({ position, scale = 1, mobile }: CelestialProps) => {
             blending={THREE.AdditiveBlending}
           />
         </mesh>
-        {/* photon ring hugging the horizon; flares when the hole is fed */}
-        <mesh ref={photonRing}>
-          <torusGeometry args={[1.14, 0.022, 12, 96]} />
-          <meshBasicMaterial
-            ref={photonMaterial}
-            color="#ffffff"
-            transparent
-            opacity={0.85}
-            toneMapped={false}
-            depthWrite={false}
-            blending={THREE.AdditiveBlending}
-          />
-        </mesh>
         {/* accretion disc */}
         <points geometry={discGeometry}>
           <shaderMaterial
@@ -1007,6 +995,21 @@ const BlackHole = ({ position, scale = 1, mobile }: CelestialProps) => {
           />
         </points>
       </group>
+      {/* Photon ring, outside the tilted group and turned to face the camera every
+          frame. Inside it, the torus projected as an ellipse and made the round
+          horizon read as an oval — and a light ring is a circle from any angle. */}
+      <mesh ref={photonRing}>
+        <torusGeometry args={[1.16, 0.022, 12, 96]} />
+        <meshBasicMaterial
+          ref={photonMaterial}
+          color="#ffffff"
+          transparent
+          opacity={0.85}
+          toneMapped={false}
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+        />
+      </mesh>
     </group>
   );
 };
@@ -1135,7 +1138,7 @@ const Supernova = ({ position, scale = 1, mobile }: CelestialProps) => {
   const [hovered, setHovered] = useState(false);
   useCursor(hovered);
 
-  const ejecta = useMemo(() => shellGeometry(mobile ? 2000 : 2800), [mobile]);
+  const ejecta = useMemo(() => shellGeometry(mobile ? 1150 : 2800), [mobile]);
   const shellUniforms = useMemo(
     () => ({ uTime: { value: 0 }, uBlast: { value: -1 }, uScale: { value: 600 } }),
     [],
@@ -1788,7 +1791,7 @@ export const PortfolioScene = () => {
       {/* portrait y/x put the camera track inside the accretion disc, so scrolling
           past means passing through it — the same close pass the planet's rings give */}
       <BlackHole
-        position={portrait ? [-2.4, 3.0, -35] : [-8, 4, -35]}
+        position={portrait ? [-1.7, 2.6, -35] : [-8, 4, -35]}
         scale={portrait ? 0.85 : 1}
         mobile={portrait}
       />
