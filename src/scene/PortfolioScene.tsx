@@ -365,6 +365,10 @@ const RING_VERT = /* glsl */ `
   uniform float uTime;
   uniform float uShock;  // crest position in [0,1] while a click plays out, else -1
   uniform float uScale;  // pixels per world unit at one unit of depth
+  uniform vec2 uFront;   // crest radius at shock 0 and 1 — reverse them to collapse inward
+  uniform float uPush;   // radial displacement at the crest; negative drags grains in
+  uniform float uLift;   // out-of-plane displacement at the crest
+  uniform float uBeam;   // 0 = even, 1 = one limb brightened, the way a relativistic disc reads
   varying vec3 vColor;
   varying float vGlow;
 
@@ -375,20 +379,22 @@ const RING_VERT = /* glsl */ `
     float s = sin(angle);
     vec3 p = vec3(position.x * c - position.z * s, position.y, position.x * s + position.z * c);
 
-    // a gaussian crest sweeping outward through the band. It starts at the inner
-    // edge, not at the planet's centre, and only fades once it has cleared the ring
-    float front = 1.9 + uShock * 2.85;
+    // a gaussian crest travelling through the band. It starts at one edge rather
+    // than at the centre, so it does not spend its amplitude crossing empty space
+    float front = mix(uFront.x, uFront.y, uShock);
     float offset = radius - front;
     float wave = exp(-offset * offset * 6.0) * (1.0 - smoothstep(0.3, 0.9, uShock));
-    p.xz *= 1.0 + wave * 0.26;
-    p.y += wave * 0.55;
+    p.xz *= 1.0 + wave * uPush;
+    p.y += wave * uLift;
 
-    vColor = aColor;
+    // Doppler beaming: the limb turning toward the camera outshines the other
+    float side = p.x / max(radius, 0.001);
+    vColor = aColor * mix(1.0, 0.4 + 0.85 * (side * 0.5 + 0.5), uBeam);
     vGlow = wave;
 
     vec4 mv = modelViewMatrix * vec4(p, 1.0);
     // capped: the mobile flyby passes far closer than the desktop track, and
-    // uncapped grains balloon into confetti that no longer reads as a ring
+    // uncapped grains balloon into confetti that no longer reads as a band
     gl_PointSize = min(aSize * (1.0 + wave * 2.4) * uScale / max(0.001, -mv.z), 11.0);
     gl_Position = projectionMatrix * mv;
   }
@@ -453,49 +459,87 @@ const BANDS_FRAG = /* glsl */ `
   }
 `;
 
-// Deterministic grain cloud: colour banded by radius, a clean gap, and Keplerian
-// speeds so inner grains outrun outer ones.
-const useRingGeometry = (count: number) =>
-  useMemo(() => {
-    const positions = new Float32Array(count * 3);
-    const colors = new Float32Array(count * 3);
-    const speeds = new Float32Array(count);
-    const sizes = new Float32Array(count);
-    const inner = new THREE.Color(NEON.cyan);
-    const mid = new THREE.Color(NEON.violet);
-    const outer = new THREE.Color(NEON.pink);
-    const shade = new THREE.Color();
+type Band = {
+  count: number;
+  inner: number;
+  outer: number;
+  spin: number;
+  thickness: number;
+  size: [number, number];
+  /** colour sampled inner → middle → outer */
+  stops: [string, string, string];
+  /** a division swept clear of grains, e.g. Cassini */
+  gap?: [number, number];
+  /** >1 crowds grains toward the inner edge, the way an accretion disc packs in */
+  bias?: number;
+  /** 0..1, how much smaller the outermost grains are than the innermost */
+  falloff?: number;
+  /** keeps two bands in the same scene from drawing the same cloud */
+  salt: number;
+};
 
-    for (let i = 0; i < count; i++) {
-      let radius = RING_INNER + rand01(i, 70) * (RING_OUTER - RING_INNER);
-      // push anything landing in the division onto one of its edges
-      if (radius > RING_GAP[0] && radius < RING_GAP[1]) {
-        radius = radius < (RING_GAP[0] + RING_GAP[1]) / 2 ? RING_GAP[0] : RING_GAP[1];
-      }
-      const angle = rand01(i, 71) * Math.PI * 2;
-      positions[i * 3] = Math.cos(angle) * radius;
-      positions[i * 3 + 1] = (rand01(i, 72) - 0.5) * 0.08; // the band is paper-thin
-      positions[i * 3 + 2] = Math.sin(angle) * radius;
+// Deterministic grain cloud: colour banded by radius, an optional clean division,
+// and Keplerian speeds so inner grains outrun outer ones and the band shears.
+const orbitGeometry = ({
+  count,
+  inner,
+  outer,
+  spin,
+  thickness,
+  size,
+  stops,
+  gap,
+  salt,
+  bias = 1,
+  falloff = 0,
+}: Band) => {
+  const positions = new Float32Array(count * 3);
+  const colors = new Float32Array(count * 3);
+  const speeds = new Float32Array(count);
+  const sizes = new Float32Array(count);
+  const near = new THREE.Color(stops[0]);
+  const mid = new THREE.Color(stops[1]);
+  const far = new THREE.Color(stops[2]);
+  const shade = new THREE.Color();
 
-      speeds[i] = 0.5 * (RING_INNER / radius) ** 1.5 * (0.9 + rand01(i, 73) * 0.2);
-
-      const k = (radius - RING_INNER) / (RING_OUTER - RING_INNER);
-      shade.copy(inner).lerp(mid, Math.min(1, k * 2));
-      if (k > 0.5) shade.copy(mid).lerp(outer, (k - 0.5) * 2);
-      colors[i * 3] = shade.r;
-      colors[i * 3 + 1] = shade.g;
-      colors[i * 3 + 2] = shade.b;
-
-      sizes[i] = 0.045 + rand01(i, 74) * 0.055;
+  for (let i = 0; i < count; i++) {
+    const spread = rand01(i, salt) ** bias;
+    let radius = inner + spread * (outer - inner);
+    // push anything landing in the division onto one of its edges
+    if (gap && radius > gap[0] && radius < gap[1]) {
+      radius = radius < (gap[0] + gap[1]) / 2 ? gap[0] : gap[1];
     }
+    const angle = rand01(i, salt + 1) * Math.PI * 2;
+    positions[i * 3] = Math.cos(angle) * radius;
+    positions[i * 3 + 1] = (rand01(i, salt + 2) - 0.5) * thickness;
+    positions[i * 3 + 2] = Math.sin(angle) * radius;
 
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    geo.setAttribute('aColor', new THREE.BufferAttribute(colors, 3));
-    geo.setAttribute('aSpeed', new THREE.BufferAttribute(speeds, 1));
-    geo.setAttribute('aSize', new THREE.BufferAttribute(sizes, 1));
-    return geo;
-  }, [count]);
+    speeds[i] = spin * (inner / radius) ** 1.5 * (0.9 + rand01(i, salt + 3) * 0.2);
+
+    const k = (radius - inner) / (outer - inner);
+    shade.copy(near).lerp(mid, Math.min(1, k * 2));
+    if (k > 0.5) shade.copy(mid).lerp(far, (k - 0.5) * 2);
+    colors[i * 3] = shade.r;
+    colors[i * 3 + 1] = shade.g;
+    colors[i * 3 + 2] = shade.b;
+
+    sizes[i] = (size[0] + rand01(i, salt + 4) * (size[1] - size[0])) * (1 - falloff * spread);
+  }
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geo.setAttribute('aColor', new THREE.BufferAttribute(colors, 3));
+  geo.setAttribute('aSpeed', new THREE.BufferAttribute(speeds, 1));
+  geo.setAttribute('aSize', new THREE.BufferAttribute(sizes, 1));
+  return geo;
+};
+
+// Shared by every band: the point size has to track the drawing buffer and the
+// warp effect's field of view, since gl_PointSize is in device pixels.
+const pixelsPerUnit = (height: number, dpr: number, camera: THREE.Camera) => {
+  const fov = camera instanceof THREE.PerspectiveCamera ? camera.fov : 60;
+  return (height * dpr) / (2 * Math.tan((fov * Math.PI) / 360));
+};
 
 const Planet = ({ position, scale = 1, mobile }: CelestialProps) => {
   const planet = useRef<THREE.Group>(null);
@@ -519,9 +563,31 @@ const Planet = ({ position, scale = 1, mobile }: CelestialProps) => {
   const [hovered, setHovered] = useState(false);
   useCursor(hovered);
 
-  const ringGeometry = useRingGeometry(mobile ? 2200 : 2800);
+  const ringGeometry = useMemo(
+    () =>
+      orbitGeometry({
+        count: mobile ? 2200 : 2800,
+        inner: RING_INNER,
+        outer: RING_OUTER,
+        gap: RING_GAP,
+        spin: 0.5,
+        thickness: 0.08,
+        size: [0.045, 0.1],
+        stops: [NEON.cyan, NEON.violet, NEON.pink],
+        salt: 70,
+      }),
+    [mobile],
+  );
   const ringUniforms = useMemo(
-    () => ({ uTime: { value: 0 }, uShock: { value: -1 }, uScale: { value: 600 } }),
+    () => ({
+      uTime: { value: 0 },
+      uShock: { value: -1 },
+      uScale: { value: 600 },
+      uFront: { value: new THREE.Vector2(1.9, 4.75) },
+      uPush: { value: 0.26 },
+      uLift: { value: 0.55 },
+      uBeam: { value: 0 },
+    }),
     [],
   );
   const atmosphereUniforms = useMemo(
@@ -550,11 +616,7 @@ const Planet = ({ position, scale = 1, mobile }: CelestialProps) => {
     if (ringMaterial.current) {
       ringMaterial.current.uniforms.uTime.value = ringClock.current;
       ringMaterial.current.uniforms.uShock.value = shock.current;
-      // gl_PointSize is in device pixels, so the grains have to be re-scaled
-      // whenever the drawing buffer or the warp effect's field of view changes
-      const fov = camera instanceof THREE.PerspectiveCamera ? camera.fov : 60;
-      ringMaterial.current.uniforms.uScale.value =
-        (size.height * viewport.dpr) / (2 * Math.tan((fov * Math.PI) / 360));
+      ringMaterial.current.uniforms.uScale.value = pixelsPerUnit(size.height, viewport.dpr, camera);
     }
     if (atmosphere.current) atmosphere.current.uniforms.uIntensity.value = 1 + flash.current * 3.5;
     if (bands.current) bands.current.uniforms.uIntensity.value = 1 + flash.current * 2.5;
@@ -702,176 +764,424 @@ const Planet = ({ position, scale = 1, mobile }: CelestialProps) => {
   );
 };
 
-// Black hole with a spinning accretion disk — companion of "Expérience".
-// Click: it swallows a swirl of matter spiraling into the event horizon.
-const SUCK_COUNT = 110;
+// ── Black hole ─────────────────────────────────────────────────────────────
+// Companion of "Expérience". Two wireframe tori became a real accretion disc:
+// a grain band wide enough for the mobile flyby to pass through, lit brighter on
+// the limb turning toward the camera. Click: the disc collapses inward and the
+// hole answers with relativistic jets.
+
+const DISC_INNER = 1.45;
+const DISC_OUTER = 5.4;
+
+// Two opposing beams along the disc axis, fired on click. Idle costs nothing:
+// the whole system is hidden between detonations.
+const JET_VERT = /* glsl */ `
+  attribute float aSeed;
+  attribute float aSpread;
+  attribute float aPhase;
+  attribute float aSide;
+  uniform float uJet;
+  uniform float uScale;
+  varying float vFade;
+
+  void main() {
+    float travel = aSeed * 0.3 + uJet * (1.2 + aSeed * 1.1);
+    float cone = 0.09 + travel * 0.2;
+    vec3 p = vec3(
+      cos(aPhase) * aSpread * cone,
+      aSide * travel * 5.0,
+      sin(aPhase) * aSpread * cone
+    );
+    // ramps in off the horizon, then dies back once the beam has run its length
+    vFade = smoothstep(0.0, 0.12, travel) * (1.0 - smoothstep(0.5, 1.0, uJet));
+
+    vec4 mv = modelViewMatrix * vec4(p, 1.0);
+    gl_PointSize = min((0.05 + aSpread * 0.035) * uScale / max(0.001, -mv.z), 10.0);
+    gl_Position = projectionMatrix * mv;
+  }
+`;
+
+const JET_FRAG = /* glsl */ `
+  varying float vFade;
+
+  void main() {
+    vec2 uv = gl_PointCoord - 0.5;
+    float d2 = dot(uv, uv);
+    if (d2 > 0.25) discard;
+    vec3 col = mix(vec3(0.72, 0.96, 1.0), vec3(0.66, 0.36, 0.98), 0.45);
+    gl_FragColor = vec4(col * (1.0 + vFade * 2.0), smoothstep(0.25, 0.02, d2) * vFade);
+  }
+`;
+
+const jetGeometry = (count: number) => {
+  const positions = new Float32Array(count * 3);
+  const seeds = new Float32Array(count);
+  const spreads = new Float32Array(count);
+  const phases = new Float32Array(count);
+  const sides = new Float32Array(count);
+
+  for (let i = 0; i < count; i++) {
+    seeds[i] = rand01(i, 80);
+    spreads[i] = rand01(i, 81) ** 0.6;
+    phases[i] = rand01(i, 82) * Math.PI * 2;
+    sides[i] = i % 2 === 0 ? 1 : -1;
+  }
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geo.setAttribute('aSeed', new THREE.BufferAttribute(seeds, 1));
+  geo.setAttribute('aSpread', new THREE.BufferAttribute(spreads, 1));
+  geo.setAttribute('aPhase', new THREE.BufferAttribute(phases, 1));
+  geo.setAttribute('aSide', new THREE.BufferAttribute(sides, 1));
+  return geo;
+};
 
 const BlackHole = ({ position, scale = 1, mobile }: CelestialProps) => {
-  const disk = useRef<THREE.Group>(null);
-  const swirl = useRef<THREE.Points>(null);
-  // -1 = idle, otherwise progress of the suck animation in [0, ~1.5]
-  const suckT = useRef(-1);
+  const discMaterial = useRef<THREE.ShaderMaterial>(null);
+  const jets = useRef<THREE.Points>(null);
+  const jetMaterial = useRef<THREE.ShaderMaterial>(null);
+  const photonRing = useRef<THREE.Mesh>(null);
+  const photonMaterial = useRef<THREE.MeshBasicMaterial>(null);
+  const lens = useRef<THREE.ShaderMaterial>(null);
+  const discClock = useRef(0);
+  const discBoost = useRef(0);
+  // -1 = idle, otherwise the collapse's progress
+  const collapse = useRef(-1);
+  const flare = useRef(0);
   const [hovered, setHovered] = useState(false);
   useCursor(hovered);
 
-  const seeds = useMemo(
+  const discGeometry = useMemo(
     () =>
-      Array.from({ length: SUCK_COUNT }, (_, i) => ({
-        angle: rand01(i, 20) * Math.PI * 2,
-        radius: 2.5 + rand01(i, 21) * 3.5,
-        speed: 0.7 + rand01(i, 22) * 0.7,
-        y: (rand01(i, 23) - 0.5) * 3,
-      })),
+      orbitGeometry({
+        count: mobile ? 3000 : 4000,
+        inner: DISC_INNER,
+        outer: DISC_OUTER,
+        spin: 0.95,
+        thickness: 0.1,
+        size: [0.05, 0.1],
+        // white-hot at the horizon, cooling outward
+        stops: ['#fff1f8', NEON.pink, '#6d28d9'],
+        salt: 20,
+        // a disc is not an even scatter: it packs in and brightens toward the ISCO
+        bias: 1.9,
+        falloff: 0.45,
+      }),
+    [mobile],
+  );
+  const beams = useMemo(() => jetGeometry(mobile ? 200 : 300), [mobile]);
+
+  const discUniforms = useMemo(
+    () => ({
+      uTime: { value: 0 },
+      uShock: { value: -1 },
+      uScale: { value: 600 },
+      // reversed against the planet's: the crest starts outside and drags inward
+      uFront: { value: new THREE.Vector2(DISC_OUTER + 0.4, DISC_INNER - 0.5) },
+      uPush: { value: -0.3 },
+      uLift: { value: 0.12 },
+      uBeam: { value: 1 },
+    }),
+    [],
+  );
+  const jetUniforms = useMemo(() => ({ uJet: { value: 0 }, uScale: { value: 600 } }), []);
+  const lensUniforms = useMemo(
+    () => ({ uColor: { value: new THREE.Color('#c4b5fd') }, uIntensity: { value: 1 } }),
     [],
   );
 
-  const swirlGeometry = useMemo(() => {
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(SUCK_COUNT * 3), 3));
-    return geo;
-  }, []);
+  useFrame(({ camera, size, viewport }, delta) => {
+    discBoost.current = THREE.MathUtils.damp(discBoost.current, 0, 1.3, delta);
+    flare.current = THREE.MathUtils.damp(flare.current, 0, 2.6, delta);
+    discClock.current += delta * (1 + discBoost.current);
 
-  useFrame((_, delta) => {
-    if (disk.current) disk.current.rotation.z += delta * (suckT.current >= 0 ? 4 : 0.8);
-    if (!swirl.current) return;
-    swirl.current.visible = suckT.current >= 0;
-    if (suckT.current < 0) return;
+    if (collapse.current >= 0) {
+      collapse.current += delta / 1.25;
+      if (collapse.current > 1.0) collapse.current = -1;
+    }
+    const t = collapse.current;
+    const pixels = pixelsPerUnit(size.height, viewport.dpr, camera);
 
-    suckT.current += delta / 1.6;
-    const positions = swirl.current.geometry.getAttribute('position');
-    seeds.forEach((seed, i) => {
-      const t = Math.min(1, suckT.current * seed.speed);
-      const radius = seed.radius * (1 - t) ** 1.5;
-      const angle = seed.angle + t * 7;
-      positions.setXYZ(i, Math.cos(angle) * radius, seed.y * (1 - t), Math.sin(angle) * radius);
-    });
-    positions.needsUpdate = true;
-    if (suckT.current > 1.5) suckT.current = -1;
+    if (discMaterial.current) {
+      discMaterial.current.uniforms.uTime.value = discClock.current;
+      discMaterial.current.uniforms.uShock.value = t;
+      discMaterial.current.uniforms.uScale.value = pixels;
+    }
+    if (jets.current && jetMaterial.current) {
+      jets.current.visible = t >= 0;
+      if (t >= 0) {
+        jetMaterial.current.uniforms.uJet.value = t;
+        jetMaterial.current.uniforms.uScale.value = pixels;
+      }
+    }
+    if (photonRing.current && photonMaterial.current) {
+      const flareScale = 1 + flare.current * 0.35;
+      photonRing.current.scale.set(flareScale, flareScale, 1);
+      photonMaterial.current.opacity = Math.min(1, 0.85 + flare.current);
+    }
+    if (lens.current) lens.current.uniforms.uIntensity.value = 0.7 + flare.current * 3;
   });
+
+  const detonate = () => {
+    collapse.current = 0;
+    flare.current = 1;
+    discBoost.current += 7;
+  };
 
   return (
     <group position={position} scale={scale}>
       <group rotation={[0.9, 0.15, 0]}>
-      {/* invisible hitbox: keeps the hover alive while the camera leans in */}
-      <mesh
-        onPointerOver={(e) => {
-          e.stopPropagation();
-          setHovered(true);
-          if (!isTouchDevice()) focusState.target = new THREE.Vector3(...position);
-        }}
-        onPointerOut={() => {
-          setHovered(false);
-          focusState.target = null;
-        }}
-        onClick={(e) => {
-          e.stopPropagation();
-          suckT.current = 0;
-        }}
-      >
-        <sphereGeometry args={[hitbox(3.2, 2.2, mobile), 16, 16]} />
-        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
-      </mesh>
-      <mesh>
-        <sphereGeometry args={[1, 32, 32]} />
-        <meshBasicMaterial color="#000000" />
-      </mesh>
-      <points ref={swirl} visible={false} geometry={swirlGeometry}>
-        <pointsMaterial
-          size={0.08}
-          color="#f472b6"
-          depthWrite={false}
-          blending={THREE.AdditiveBlending}
-        />
-      </points>
-      {/* photon ring hugging the event horizon */}
-      <mesh>
-        <torusGeometry args={[1.12, 0.03, 12, 80]} />
-        <meshStandardMaterial color="#000" emissive="#ffffff" emissiveIntensity={4} />
-      </mesh>
-      <group ref={disk}>
-        <mesh>
-          <torusGeometry args={[1.8, 0.16, 10, 80]} />
-          <meshStandardMaterial color="#000" emissive="#f472b6" emissiveIntensity={2.5} wireframe />
+        {/* invisible hitbox: keeps the hover alive while the camera leans in */}
+        <mesh
+          onPointerOver={(e) => {
+            e.stopPropagation();
+            setHovered(true);
+            if (!isTouchDevice()) focusState.target = new THREE.Vector3(...position);
+          }}
+          onPointerOut={() => {
+            setHovered(false);
+            focusState.target = null;
+          }}
+          onClick={(e) => {
+            e.stopPropagation();
+            detonate();
+          }}
+        >
+          <sphereGeometry args={[hitbox(3.2, 2.2, mobile), 16, 16]} />
+          <meshBasicMaterial transparent opacity={0} depthWrite={false} />
         </mesh>
+        {/* event horizon: the one thing in the scene that emits nothing */}
         <mesh>
-          <torusGeometry args={[2.5, 0.1, 8, 80]} />
-          <meshStandardMaterial color="#000" emissive="#a855f7" emissiveIntensity={1.8} wireframe />
+          <sphereGeometry args={[1, 32, 32]} />
+          <meshBasicMaterial color="#000000" />
         </mesh>
-      </group>
+        {/* lensing halo — light bent around the far side of the horizon */}
+        <mesh scale={1.45}>
+          <sphereGeometry args={[1, 32, 32]} />
+          <shaderMaterial
+            ref={lens}
+            uniforms={lensUniforms}
+            vertexShader={GLOW_VERT}
+            fragmentShader={ATMOSPHERE_FRAG}
+            transparent
+            depthWrite={false}
+            side={THREE.BackSide}
+            blending={THREE.AdditiveBlending}
+          />
+        </mesh>
+        {/* photon ring hugging the horizon; flares when the hole is fed */}
+        <mesh ref={photonRing}>
+          <torusGeometry args={[1.14, 0.022, 12, 96]} />
+          <meshBasicMaterial
+            ref={photonMaterial}
+            color="#ffffff"
+            transparent
+            opacity={0.85}
+            toneMapped={false}
+            depthWrite={false}
+            blending={THREE.AdditiveBlending}
+          />
+        </mesh>
+        {/* accretion disc */}
+        <points geometry={discGeometry}>
+          <shaderMaterial
+            ref={discMaterial}
+            uniforms={discUniforms}
+            vertexShader={RING_VERT}
+            fragmentShader={RING_FRAG}
+            transparent
+            depthWrite={false}
+            blending={THREE.AdditiveBlending}
+          />
+        </points>
+        {/* relativistic jets, fired on click */}
+        <points ref={jets} geometry={beams} visible={false}>
+          <shaderMaterial
+            ref={jetMaterial}
+            uniforms={jetUniforms}
+            vertexShader={JET_VERT}
+            fragmentShader={JET_FRAG}
+            transparent
+            depthWrite={false}
+            blending={THREE.AdditiveBlending}
+          />
+        </points>
       </group>
     </group>
   );
 };
 
-// Pulsing supernova — companion of "Projets". Click: it explodes in a particle burst.
-const BURST_COUNT = 150;
+// ── Supernova ──────────────────────────────────────────────────────────────
+// Companion of "Projets". The wireframe icosahedron became a remnant shell of
+// filaments — wide and hollow, so the mobile flyby goes straight through it.
+// Click: the shell surges outward and a blast wave races past it.
+
+const SHELL_INNER = 1.55;
+const SHELL_OUTER = 3.9;
+
+const SHELL_VERT = /* glsl */ `
+  attribute vec3 aDir;
+  attribute float aRadius;
+  attribute float aSize;
+  attribute float aPhase;
+  attribute vec3 aColor;
+  uniform float uTime;
+  uniform float uBlast;  // -1 idle, else 0..1
+  uniform float uScale;
+  varying vec3 vColor;
+  varying float vGlow;
+
+  void main() {
+    float firing = step(0.0, uBlast);
+    float blast = max(0.0, uBlast);
+    // breathing keeps the remnant from ever looking frozen
+    float breathe = 1.0 + sin(uTime * 0.55 + aPhase) * 0.05;
+    // a surge that recoils: the shell has to be back at rest for the next click
+    float surge = sin(blast * 3.14159) * 2.9 * firing;
+    vec3 p = aDir * (aRadius * breathe + surge);
+
+    vColor = aColor;
+    vGlow = firing * pow(1.0 - blast, 2.0);
+
+    vec4 mv = modelViewMatrix * vec4(p, 1.0);
+    gl_PointSize = min(aSize * (1.0 + vGlow * 2.2) * uScale / max(0.001, -mv.z), 11.0);
+    gl_Position = projectionMatrix * mv;
+  }
+`;
+
+const SHELL_FRAG = /* glsl */ `
+  varying vec3 vColor;
+  varying float vGlow;
+
+  void main() {
+    vec2 uv = gl_PointCoord - 0.5;
+    float d2 = dot(uv, uv);
+    if (d2 > 0.25) discard;
+    gl_FragColor = vec4(vColor * (1.0 + vGlow * 2.4), smoothstep(0.25, 0.02, d2));
+  }
+`;
+
+// Ejecta are clumpy, not evenly scattered: each grain is pulled toward one of a
+// handful of filament axes, which is what gives a real remnant its wisps.
+const FILAMENTS = 14;
+
+const shellGeometry = (count: number) => {
+  const positions = new Float32Array(count * 3);
+  const dirs = new Float32Array(count * 3);
+  const radii = new Float32Array(count);
+  const sizes = new Float32Array(count);
+  const phases = new Float32Array(count);
+  const colors = new Float32Array(count * 3);
+  const hot = new THREE.Color('#fff2fa');
+  const mid = new THREE.Color(NEON.pink);
+  const cool = new THREE.Color(NEON.cyan);
+  const shade = new THREE.Color();
+  const dir = new THREE.Vector3();
+  const axis = new THREE.Vector3();
+
+  for (let i = 0; i < count; i++) {
+    const theta = rand01(i, 30) * Math.PI * 2;
+    const phi = Math.acos(rand01(i, 31) * 2 - 1);
+    dir.set(Math.sin(phi) * Math.cos(theta), Math.cos(phi), Math.sin(phi) * Math.sin(theta));
+
+    const f = Math.floor(rand01(i, 32) * FILAMENTS);
+    const ftheta = rand01(f, 33) * Math.PI * 2;
+    const fphi = Math.acos(rand01(f, 34) * 2 - 1);
+    axis.set(Math.sin(fphi) * Math.cos(ftheta), Math.cos(fphi), Math.sin(fphi) * Math.sin(ftheta));
+    dir.lerp(axis, 0.55 * rand01(i, 35)).normalize();
+
+    dirs[i * 3] = dir.x;
+    dirs[i * 3 + 1] = dir.y;
+    dirs[i * 3 + 2] = dir.z;
+
+    const k = rand01(i, 36) ** 0.7;
+    const radius = SHELL_INNER + k * (SHELL_OUTER - SHELL_INNER);
+    radii[i] = radius;
+    positions[i * 3] = dir.x * radius;
+    positions[i * 3 + 1] = dir.y * radius;
+    positions[i * 3 + 2] = dir.z * radius;
+
+    shade.copy(hot).lerp(mid, Math.min(1, k * 2));
+    if (k > 0.5) shade.copy(mid).lerp(cool, (k - 0.5) * 2);
+    colors[i * 3] = shade.r;
+    colors[i * 3 + 1] = shade.g;
+    colors[i * 3 + 2] = shade.b;
+
+    sizes[i] = 0.035 + rand01(i, 37) * 0.06;
+    phases[i] = rand01(i, 38) * Math.PI * 2;
+  }
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geo.setAttribute('aDir', new THREE.BufferAttribute(dirs, 3));
+  geo.setAttribute('aRadius', new THREE.BufferAttribute(radii, 1));
+  geo.setAttribute('aSize', new THREE.BufferAttribute(sizes, 1));
+  geo.setAttribute('aPhase', new THREE.BufferAttribute(phases, 1));
+  geo.setAttribute('aColor', new THREE.BufferAttribute(colors, 3));
+  return geo;
+};
 
 const Supernova = ({ position, scale = 1, mobile }: CelestialProps) => {
   const core = useRef<THREE.Mesh>(null);
-  const coreMaterial = useRef<THREE.MeshStandardMaterial>(null);
-  const shockwave = useRef<THREE.Mesh>(null);
-  const burst = useRef<THREE.Points>(null);
-  const burstMaterial = useRef<THREE.PointsMaterial>(null);
-  // -1 = idle, otherwise progress of the explosion in [0, 1]
-  const burstT = useRef(-1);
+  const coreMaterial = useRef<THREE.MeshBasicMaterial>(null);
+  const corona = useRef<THREE.ShaderMaterial>(null);
+  const shell = useRef<THREE.Group>(null);
+  const shellMaterial = useRef<THREE.ShaderMaterial>(null);
+  const wave = useRef<THREE.Mesh>(null);
+  const waveMaterial = useRef<THREE.ShaderMaterial>(null);
+  // -1 = idle, otherwise progress of the detonation
+  const blast = useRef(-1);
   const flash = useRef(0);
   const [hovered, setHovered] = useState(false);
   useCursor(hovered);
 
-  const seeds = useMemo(
-    () =>
-      Array.from({ length: BURST_COUNT }, (_, i) => {
-        const theta = rand01(i, 30) * Math.PI * 2;
-        const phi = Math.acos(rand01(i, 31) * 2 - 1);
-        return {
-          dir: new THREE.Vector3(
-            Math.sin(phi) * Math.cos(theta),
-            Math.cos(phi),
-            Math.sin(phi) * Math.sin(theta),
-          ),
-          speed: 3 + rand01(i, 32) * 5,
-        };
-      }),
+  const ejecta = useMemo(() => shellGeometry(mobile ? 2000 : 2800), [mobile]);
+  const shellUniforms = useMemo(
+    () => ({ uTime: { value: 0 }, uBlast: { value: -1 }, uScale: { value: 600 } }),
+    [],
+  );
+  const coronaUniforms = useMemo(
+    () => ({ uColor: { value: new THREE.Color('#ffd6ec') }, uIntensity: { value: 1 } }),
+    [],
+  );
+  const waveUniforms = useMemo(
+    () => ({ uColor: { value: new THREE.Color('#a5f3fc') }, uIntensity: { value: 0 } }),
     [],
   );
 
-  const burstGeometry = useMemo(() => {
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(BURST_COUNT * 3), 3));
-    return geo;
-  }, []);
-
-  useFrame(({ clock }, delta) => {
-    const t = clock.elapsedTime;
+  useFrame(({ camera, clock, size, viewport }, delta) => {
+    const time = clock.elapsedTime;
     flash.current = THREE.MathUtils.damp(flash.current, 0, 2.5, delta);
-    if (core.current) {
-      core.current.scale.setScalar((1 + Math.sin(t * 2.5) * 0.18) * (1 + flash.current * 0.8));
-    }
-    if (coreMaterial.current) coreMaterial.current.emissiveIntensity = 5 + flash.current * 12;
-    if (shockwave.current) {
-      shockwave.current.rotation.y += delta * 0.25;
-      shockwave.current.scale.setScalar(1 + ((t * 0.35) % 1) * 0.6);
-    }
+    if (shell.current) shell.current.rotation.y += delta * 0.05;
 
-    if (!burst.current) return;
-    burst.current.visible = burstT.current >= 0;
-    if (burstT.current < 0) return;
+    if (blast.current >= 0) {
+      blast.current += delta / 1.25;
+      if (blast.current > 1.0) blast.current = -1;
+    }
+    const t = blast.current;
 
-    burstT.current += delta / 1.6;
-    const ease = burstT.current * (2 - burstT.current);
-    const positions = burst.current.geometry.getAttribute('position');
-    seeds.forEach((seed, i) => {
-      positions.setXYZ(
-        i,
-        seed.dir.x * seed.speed * ease,
-        seed.dir.y * seed.speed * ease,
-        seed.dir.z * seed.speed * ease,
-      );
-    });
-    positions.needsUpdate = true;
-    if (burstMaterial.current) burstMaterial.current.opacity = Math.max(0, 1 - burstT.current);
-    if (burstT.current > 1) burstT.current = -1;
+    if (core.current) core.current.scale.setScalar(1 + Math.sin(time * 2.5) * 0.14 + flash.current);
+    if (coreMaterial.current) coreMaterial.current.opacity = Math.min(1, 0.9 + flash.current);
+    if (corona.current) corona.current.uniforms.uIntensity.value = 1.1 + flash.current * 4;
+
+    if (shellMaterial.current) {
+      shellMaterial.current.uniforms.uTime.value = time;
+      shellMaterial.current.uniforms.uBlast.value = t;
+      shellMaterial.current.uniforms.uScale.value = pixelsPerUnit(size.height, viewport.dpr, camera);
+    }
+    if (wave.current && waveMaterial.current) {
+      wave.current.visible = t >= 0;
+      if (t >= 0) {
+        wave.current.scale.setScalar(1.1 + t * 2.9);
+        waveMaterial.current.uniforms.uIntensity.value = Math.max(0, 1 - t) ** 3 * 4;
+      }
+    }
   });
+
+  const detonate = () => {
+    blast.current = 0;
+    flash.current = 1;
+  };
 
   return (
     <group position={position} scale={scale}>
@@ -888,41 +1198,68 @@ const Supernova = ({ position, scale = 1, mobile }: CelestialProps) => {
         }}
         onClick={(e) => {
           e.stopPropagation();
-          burstT.current = 0;
-          flash.current = 1;
+          detonate();
         }}
       >
         <sphereGeometry args={[hitbox(2.6, 1.8, mobile), 16, 16]} />
         <meshBasicMaterial transparent opacity={0} depthWrite={false} />
       </mesh>
+      {/* the star itself */}
       <mesh ref={core}>
-        <sphereGeometry args={[0.7, 32, 32]} />
-        <meshStandardMaterial ref={coreMaterial} color="#000" emissive="#ffffff" emissiveIntensity={5} />
-      </mesh>
-      <mesh ref={shockwave}>
-        <icosahedronGeometry args={[1.6, 1]} />
-        <meshStandardMaterial
-          color="#000"
-          emissive="#f472b6"
-          emissiveIntensity={1.6}
-          wireframe
+        <sphereGeometry args={[0.52, 32, 32]} />
+        <meshBasicMaterial
+          ref={coreMaterial}
+          color="#ffffff"
           transparent
-          opacity={0.55}
+          opacity={0.9}
+          toneMapped={false}
         />
       </mesh>
-      <points ref={burst} visible={false} geometry={burstGeometry}>
-        <pointsMaterial
-          ref={burstMaterial}
-          size={0.09}
-          color="#ffd6ec"
+      {/* corona */}
+      <mesh scale={1.9}>
+        <sphereGeometry args={[0.52, 32, 32]} />
+        <shaderMaterial
+          ref={corona}
+          uniforms={coronaUniforms}
+          vertexShader={GLOW_VERT}
+          fragmentShader={ATMOSPHERE_FRAG}
           transparent
           depthWrite={false}
+          side={THREE.BackSide}
           blending={THREE.AdditiveBlending}
         />
-      </points>
+      </mesh>
+      {/* blast wave, racing ahead of the ejecta */}
+      <mesh ref={wave} visible={false}>
+        <sphereGeometry args={[1.5, 32, 32]} />
+        <shaderMaterial
+          ref={waveMaterial}
+          uniforms={waveUniforms}
+          vertexShader={GLOW_VERT}
+          fragmentShader={ATMOSPHERE_FRAG}
+          transparent
+          depthWrite={false}
+          side={THREE.BackSide}
+          blending={THREE.AdditiveBlending}
+        />
+      </mesh>
+      {/* remnant shell */}
+      <group ref={shell}>
+        <points geometry={ejecta}>
+          <shaderMaterial
+            ref={shellMaterial}
+            uniforms={shellUniforms}
+            vertexShader={SHELL_VERT}
+            fragmentShader={SHELL_FRAG}
+            transparent
+            depthWrite={false}
+            blending={THREE.AdditiveBlending}
+          />
+        </points>
+      </group>
       {/* on a phone the camera passes much closer to this than the framing suggests,
           and the full desktop intensity washes the screen pink through the bloom pass */}
-      <pointLight intensity={mobile ? 12 : 25} color="#f472b6" distance={14} />
+      <pointLight intensity={mobile ? 10 : 22} color="#f472b6" distance={14} />
     </group>
   );
 };
@@ -1448,17 +1785,20 @@ export const PortfolioScene = () => {
         scale={portrait ? 0.85 : 1}
         mobile={portrait}
       />
+      {/* portrait y/x put the camera track inside the accretion disc, so scrolling
+          past means passing through it — the same close pass the planet's rings give */}
       <BlackHole
-        position={portrait ? [-2.4, 3.8, -35] : [-8, 4, -35]}
+        position={portrait ? [-2.4, 3.0, -35] : [-8, 4, -35]}
         scale={portrait ? 0.85 : 1}
         mobile={portrait}
       />
+      {/* likewise the remnant shell: the track runs through the ejecta */}
       <Supernova
-        position={portrait ? [2.2, 2.4, -48] : [12, 3.5, -48]}
-        // smaller than its siblings on mobile: it is the only astre that is a light
-        // source, and close up a full-size one hazes the whole frame through the
+        position={portrait ? [1.6, 2.3, -48] : [12, 3.5, -48]}
+        // still smaller than its siblings on mobile: it is the only astre that is a
+        // light source, and close up a full-size one hazes the frame through the
         // bloom pass, taking the body text's contrast with it
-        scale={portrait ? 0.62 : 1}
+        scale={portrait ? 0.78 : 1}
         mobile={portrait}
       />
       <Galaxy position={[0, 6, -66]} count={portrait ? 2200 : 4000} />
