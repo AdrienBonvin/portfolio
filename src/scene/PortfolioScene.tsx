@@ -411,8 +411,16 @@ const useCelestialStage = (root: RefObject<THREE.Group | null>, fly?: Flyby) => 
 // The DOM panel glued to the astre: short 3D-ish invite, then the crisp section card.
 const CelestialSign = ({ phase, hint, children }: { phase: SignPhase; hint?: string; children?: ReactNode }) => {
   if (phase === 'hidden') return null;
+  // The invite sits under the astre; the card is centered right on it (its
+  // translucent backdrop keeps the astre visible through the text).
   return (
-    <Html center distanceFactor={9} position={[0, -3, 1.5]} zIndexRange={[40, 0]} style={{ pointerEvents: phase === 'card' ? 'auto' : 'none' }}>
+    <Html
+      center
+      distanceFactor={9}
+      position={phase === 'card' ? [0, 0, 1.5] : [0, -3, 1.5]}
+      zIndexRange={[40, 0]}
+      style={{ pointerEvents: phase === 'card' ? 'auto' : 'none' }}
+    >
       {phase === 'hint' ? <div className="astre-hint">{hint}</div> : <div className="astre-card">{children}</div>}
     </Html>
   );

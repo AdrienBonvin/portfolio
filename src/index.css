@@ -115,7 +115,9 @@ main button {
   }
 }
 
-/* section text revealed on tap: a readable, scrollable panel that follows the astre */
+/* section text revealed on tap: a scrollable panel centered on the astre.
+   The backdrop is deliberately light so the astre stays visible behind it —
+   blur + text-shadow carry the readability instead of an opaque fill. */
 .astre-card {
   width: 300px;
   max-height: 340px;
@@ -123,13 +125,15 @@ main button {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
   padding: 1.1rem 1.2rem;
-  border: 1px solid rgba(168, 85, 247, 0.4);
+  border: 1px solid rgba(168, 85, 247, 0.35);
   border-radius: 16px;
-  background: rgba(5, 5, 16, 0.82);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 0 40px -8px rgba(168, 85, 247, 0.6);
-  transform: perspective(700px) rotateY(-7deg);
+  background: rgba(5, 5, 16, 0.42);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 0 40px -8px rgba(168, 85, 247, 0.5);
   text-align: left;
+  text-shadow:
+    0 2px 18px rgba(5, 5, 16, 0.95),
+    0 0 8px rgba(5, 5, 16, 0.9);
 }
 
 .astre-card::-webkit-scrollbar {
