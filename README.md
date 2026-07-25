@@ -22,3 +22,19 @@ Mon portfolio personnel, pensé comme un voyage spatial : une scène 3D néon da
 npm install
 npm run dev
 ```
+
+## Déploiement
+
+Firebase Hosting, projet `adrien-bonvin-portfolio`. Tout merge sur `main` déploie en
+production via GitHub Actions ; chaque pull request reçoit une URL de preview
+temporaire en commentaire.
+
+Le workflow attend un secret de repo `FIREBASE_SERVICE_ACCOUNT_ADRIEN_BONVIN_PORTFOLIO`
+contenant la clé JSON d'un service account ayant le rôle *Firebase Hosting Admin*.
+`firebase init hosting:github` le crée et le pousse tout seul.
+
+À la main, si besoin :
+
+```bash
+npm run build && firebase deploy --only hosting
+```
