@@ -332,7 +332,9 @@ const Galaxy = ({ position, count = 4000 }: { position: [number, number, number]
 };
 
 // fadeWindow (mobile): [inStart, inEnd, outStart, outEnd] in journey progress.
-// The object grows in as its title screen approaches, then slides out of view
+// The object never pops into existence: it starts its run-up far behind its
+// resting spot, deep inside the fog, and flies toward the screen as its title
+// screen approaches — like the rest of the scene. Then it slides out of view
 // sideways while the user scrolls down into the section's text.
 type CelestialProps = {
   position: [number, number, number];
@@ -341,24 +343,42 @@ type CelestialProps = {
 };
 
 const SLIDE_DISTANCE = 8;
+// how far behind its resting spot the object starts the run-up (world units).
+// 30 units puts it past the fog wall (fog far = 42), so it emerges out of the
+// haze instead of blinking in.
+const APPROACH_DISTANCE = 30;
+// extra journey progress claimed before the window, used as the runway
+const APPROACH_LEAD = 0.14;
 
-// scale: entrance growth · slide: lateral exit offset · visible: skip render/raycast
+// three raycasts meshes even when they are invisible, so an off-stage hitbox
+// would silently swallow taps meant for the empty sky. Swapping raycast out is
+// the cheapest way to make a mesh untouchable without re-rendering.
+const NO_RAYCAST = () => {};
+const MESH_RAYCAST = THREE.Mesh.prototype.raycast;
+
+// slideZ: entrance run-up · slideX: lateral exit · visible/interactive: render & tap gates
 const stageFactors = (fadeWindow: [number, number, number, number] | undefined, x: number) => {
-  if (!fadeWindow) return { scale: 1, slideX: 0, visible: true };
+  if (!fadeWindow) return { slideX: 0, slideZ: 0, visible: true, interactive: true };
   const progress = scrollState.progress;
-  const grow = THREE.MathUtils.smoothstep(progress, fadeWindow[0], fadeWindow[1]);
+  const approach = THREE.MathUtils.smoothstep(
+    progress,
+    fadeWindow[0] - APPROACH_LEAD,
+    fadeWindow[1],
+  );
   const out = THREE.MathUtils.smoothstep(progress, fadeWindow[2], fadeWindow[3]);
   const direction = x >= 0 ? 1 : -1;
   return {
-    scale: grow,
     slideX: out * SLIDE_DISTANCE * direction,
-    visible: grow > 0.02 && out < 0.999,
+    slideZ: -(1 - approach) * APPROACH_DISTANCE,
+    visible: approach > 0.02 && out < 0.999,
+    interactive: approach > 0.75 && out < 0.999,
   };
 };
 
 // Ringed planet — companion of the "À propos" section. Click: the rings spin wildly.
 const Planet = ({ position, scale = 1, fadeWindow }: CelestialProps) => {
   const planet = useRef<THREE.Group>(null);
+  const hitbox = useRef<THREE.Mesh>(null);
   const rings = useRef<THREE.Group>(null);
   const moonOrbit = useRef<THREE.Group>(null);
   const ringBoost = useRef(0);
@@ -366,13 +386,14 @@ const Planet = ({ position, scale = 1, fadeWindow }: CelestialProps) => {
   useCursor(hovered);
 
   useFrame((_, delta) => {
+    const stage = stageFactors(fadeWindow, position[0]);
     if (planet.current) {
       planet.current.rotation.y += delta * 0.15;
-      const stage = stageFactors(fadeWindow, position[0]);
-      planet.current.scale.setScalar(scale * stage.scale);
       planet.current.position.x = position[0] + stage.slideX;
+      planet.current.position.z = position[2] + stage.slideZ;
       planet.current.visible = stage.visible;
     }
+    if (hitbox.current) hitbox.current.raycast = stage.interactive ? MESH_RAYCAST : NO_RAYCAST;
     if (rings.current) rings.current.rotation.z += delta * (0.1 + ringBoost.current);
     if (moonOrbit.current) moonOrbit.current.rotation.y += delta * 0.45;
     ringBoost.current = THREE.MathUtils.damp(ringBoost.current, 0, 1.2, delta);
@@ -383,6 +404,7 @@ const Planet = ({ position, scale = 1, fadeWindow }: CelestialProps) => {
       <group ref={planet} position={position} rotation={[0.35, 0, -0.15]} scale={scale}>
         {/* oversized invisible hitbox: keeps the hover alive while the camera leans in */}
         <mesh
+          ref={hitbox}
           onPointerOver={(e) => {
             e.stopPropagation();
             setHovered(true);
@@ -474,6 +496,7 @@ const SUCK_COUNT = 110;
 
 const BlackHole = ({ position, scale = 1, fadeWindow }: CelestialProps) => {
   const root = useRef<THREE.Group>(null);
+  const hitbox = useRef<THREE.Mesh>(null);
   const disk = useRef<THREE.Group>(null);
   const swirl = useRef<THREE.Points>(null);
   // -1 = idle, otherwise progress of the suck animation in [0, ~1.5]
@@ -499,12 +522,13 @@ const BlackHole = ({ position, scale = 1, fadeWindow }: CelestialProps) => {
   }, []);
 
   useFrame((_, delta) => {
+    const stage = stageFactors(fadeWindow, position[0]);
     if (root.current) {
-      const stage = stageFactors(fadeWindow, position[0]);
-      root.current.scale.setScalar(scale * stage.scale);
       root.current.position.x = position[0] + stage.slideX;
+      root.current.position.z = position[2] + stage.slideZ;
       root.current.visible = stage.visible;
     }
+    if (hitbox.current) hitbox.current.raycast = stage.interactive ? MESH_RAYCAST : NO_RAYCAST;
     if (disk.current) disk.current.rotation.z += delta * (suckT.current >= 0 ? 4 : 0.8);
     if (!swirl.current) return;
     swirl.current.visible = suckT.current >= 0;
@@ -526,6 +550,7 @@ const BlackHole = ({ position, scale = 1, fadeWindow }: CelestialProps) => {
     <group ref={root} position={position} rotation={[0.9, 0.15, 0]} scale={scale}>
       {/* oversized invisible hitbox: keeps the hover alive while the camera leans in */}
       <mesh
+        ref={hitbox}
         onPointerOver={(e) => {
           e.stopPropagation();
           setHovered(true);
@@ -579,6 +604,7 @@ const BURST_COUNT = 150;
 
 const Supernova = ({ position, scale = 1, fadeWindow }: CelestialProps) => {
   const root = useRef<THREE.Group>(null);
+  const hitbox = useRef<THREE.Mesh>(null);
   const core = useRef<THREE.Mesh>(null);
   const coreMaterial = useRef<THREE.MeshStandardMaterial>(null);
   const shockwave = useRef<THREE.Mesh>(null);
@@ -615,12 +641,13 @@ const Supernova = ({ position, scale = 1, fadeWindow }: CelestialProps) => {
 
   useFrame(({ clock }, delta) => {
     const t = clock.elapsedTime;
+    const stage = stageFactors(fadeWindow, position[0]);
     if (root.current) {
-      const stage = stageFactors(fadeWindow, position[0]);
-      root.current.scale.setScalar(scale * stage.scale);
       root.current.position.x = position[0] + stage.slideX;
+      root.current.position.z = position[2] + stage.slideZ;
       root.current.visible = stage.visible;
     }
+    if (hitbox.current) hitbox.current.raycast = stage.interactive ? MESH_RAYCAST : NO_RAYCAST;
     flash.current = THREE.MathUtils.damp(flash.current, 0, 2.5, delta);
     if (core.current) {
       core.current.scale.setScalar((1 + Math.sin(t * 2.5) * 0.18) * (1 + flash.current * 0.8));
@@ -655,6 +682,7 @@ const Supernova = ({ position, scale = 1, fadeWindow }: CelestialProps) => {
     <group ref={root} position={position} scale={scale}>
       {/* oversized invisible hitbox: keeps the hover alive while the camera leans in */}
       <mesh
+        ref={hitbox}
         onPointerOver={(e) => {
           e.stopPropagation();
           setHovered(true);
@@ -1077,10 +1105,20 @@ const Constellation = ({ label, href, salt, outline, inner = [], extraStars = []
           </mesh>
         ) : null,
       )}
+      {/* the label sits above the shape: below it, the bottom row of the mobile
+          grid would push it under the mini-map. The translucent pill keeps it
+          readable when it lands over another constellation. */}
       {hovered && (
-        <Html position={[0, -1, 0]} center style={{ pointerEvents: 'none' }}>
+        <Html position={[0, 1.15, 0]} center style={{ pointerEvents: 'none' }}>
           <span
             style={{
+              display: 'inline-block',
+              padding: '5px 12px 5px 14px',
+              borderRadius: 999,
+              background: 'rgba(5, 5, 16, 0.55)',
+              border: '1px solid rgba(34, 211, 238, 0.3)',
+              backdropFilter: 'blur(6px)',
+              WebkitBackdropFilter: 'blur(6px)',
               fontSize: 12,
               fontWeight: 700,
               letterSpacing: '0.25em',
