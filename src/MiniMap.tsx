@@ -79,45 +79,54 @@ export const MiniMap = () => {
     window.scrollTo({ top: sectionTops()[index] ?? 0, behavior: 'smooth' });
 
   return (
-    <nav className="fixed bottom-4 left-1/2 z-40 -translate-x-1/2 md:bottom-7">
-      <div className="relative h-5 w-72 md:w-[26rem]">
-        {/* track */}
-        <div className="absolute top-1/2 left-0 h-px w-full -translate-y-1/2 bg-gradient-to-r from-neon-cyan/40 via-neon-violet/40 to-neon-pink/40" />
-        {/* travelled portion */}
-        <div
-          className="absolute top-1/2 left-0 h-px -translate-y-1/2 bg-neon-cyan shadow-[0_0_8px_#22d3ee]"
-          style={{ width: `${progress * 100}%` }}
-        />
-        {/* current position marker */}
-        <div
-          className="absolute top-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-[0_0_10px_#ffffff]"
-          style={{ left: `${progress * 100}%` }}
-        />
-        {STOPS.map((stop, index) => (
-          <button
-            key={labels[index]}
-            type="button"
-            onClick={() => jump(index)}
-            className="group absolute top-1/2 -translate-x-1/2 -translate-y-1/2 cursor-pointer p-1"
-            style={{ left: `${(index / (STOPS.length - 1)) * 100}%`, color: stop.color }}
-            aria-label={labels[index]}
-          >
-            <svg
-              viewBox="0 0 20 20"
-              className={`size-4 transition-all duration-300 ${
-                active === index
-                  ? 'scale-150 drop-shadow-[0_0_6px_currentColor]'
-                  : 'opacity-60 group-hover:scale-[1.8] group-hover:opacity-100 group-hover:drop-shadow-[0_0_8px_currentColor]'
-              }`}
+    <>
+      {/* mobile: the body panels are taller than the screen, so text is permanently
+          sliding under the map. This fades it out into the void instead of letting
+          the two tangle. */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-30 h-24 bg-gradient-to-t from-void via-void/85 to-transparent md:hidden"
+      />
+      <nav className="fixed bottom-4 left-1/2 z-40 -translate-x-1/2 md:bottom-7">
+        <div className="relative h-5 w-72 md:w-[26rem]">
+          {/* track */}
+          <div className="absolute top-1/2 left-0 h-px w-full -translate-y-1/2 bg-gradient-to-r from-neon-cyan/40 via-neon-violet/40 to-neon-pink/40" />
+          {/* travelled portion */}
+          <div
+            className="absolute top-1/2 left-0 h-px -translate-y-1/2 bg-neon-cyan shadow-[0_0_8px_#22d3ee]"
+            style={{ width: `${progress * 100}%` }}
+          />
+          {/* current position marker */}
+          <div
+            className="absolute top-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-[0_0_10px_#ffffff]"
+            style={{ left: `${progress * 100}%` }}
+          />
+          {STOPS.map((stop, index) => (
+            <button
+              key={labels[index]}
+              type="button"
+              onClick={() => jump(index)}
+              className="group absolute top-1/2 -translate-x-1/2 -translate-y-1/2 cursor-pointer p-1"
+              style={{ left: `${(index / (STOPS.length - 1)) * 100}%`, color: stop.color }}
+              aria-label={labels[index]}
             >
-              {stop.icon}
-            </svg>
-            <span className="holo-text pointer-events-none absolute bottom-full left-1/2 mb-3 -translate-x-1/2 text-xs font-bold tracking-widest whitespace-nowrap text-white uppercase opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-              {labels[index]}
-            </span>
-          </button>
-        ))}
-      </div>
-    </nav>
+              <svg
+                viewBox="0 0 20 20"
+                className={`size-4 transition-all duration-300 ${
+                  active === index
+                    ? 'scale-150 drop-shadow-[0_0_6px_currentColor]'
+                    : 'opacity-60 group-hover:scale-[1.8] group-hover:opacity-100 group-hover:drop-shadow-[0_0_8px_currentColor]'
+                }`}
+              >
+                {stop.icon}
+              </svg>
+              <span className="holo-text pointer-events-none absolute bottom-full left-1/2 mb-3 -translate-x-1/2 text-xs font-bold tracking-widest whitespace-nowrap text-white uppercase opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                {labels[index]}
+              </span>
+            </button>
+          ))}
+        </div>
+      </nav>
+    </>
   );
 };

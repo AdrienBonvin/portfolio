@@ -73,7 +73,51 @@ main button {
   -webkit-text-stroke: 1.5px rgba(168, 85, 247, 0.3);
 }
 
-/* ── Mobile celestial signs (glued to the astre) ─────────────────────────── */
+/* ── Mobile section bodies ───────────────────────────────────────────────── */
+
+/* On mobile the body text is ordinary page content laid over the 3D scene, so it
+   carries its own backdrop. Solid alpha rather than backdrop-filter: the canvas
+   repaints every frame, and a blurred backdrop this large would repaint with it.
+   Desktop keeps the bare floating text — hence the media query rather than a
+   utility class. */
+@media (max-width: 767px) {
+  .section-panel {
+    padding: 1.15rem 1.15rem 1.35rem;
+    border: 1px solid rgba(168, 85, 247, 0.22);
+    border-radius: 18px;
+    background: rgba(5, 5, 16, 0.72);
+    box-shadow: 0 0 40px -14px rgba(168, 85, 247, 0.55);
+    transition:
+      opacity 0.5s ease,
+      transform 0.5s ease;
+  }
+
+  /* body copy is a notch smaller here than on desktop, so it wants a looser
+     rhythm. Done in CSS rather than a leading-* utility: those have no breakpoint
+     scoping in the markup and would move desktop line-heights with them. */
+  .section-panel p {
+    line-height: 1.7;
+  }
+
+  /* only ever set by JS once the panel is confirmed off screen, so a missing
+     IntersectionObserver leaves the text visible instead of blank */
+  .section-panel.is-hidden {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .section-panel {
+    transition: none;
+  }
+  .section-panel.is-hidden {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ── Mobile tap invitation (glued to the astre) ──────────────────────────── */
 
 /* short tap invitation: a neon panel "planted" in space, gently swaying */
 .astre-hint {
@@ -113,33 +157,4 @@ main button {
   50% {
     transform: translateY(4px);
   }
-}
-
-/* section text revealed on tap: a scrollable panel centered on the astre.
-   The backdrop is deliberately light so the astre stays visible behind it —
-   blur + text-shadow carry the readability instead of an opaque fill. */
-.astre-card {
-  width: 300px;
-  max-height: 340px;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
-  padding: 1.1rem 1.2rem;
-  border: 1px solid rgba(168, 85, 247, 0.35);
-  border-radius: 16px;
-  background: rgba(5, 5, 16, 0.42);
-  backdrop-filter: blur(14px);
-  box-shadow: 0 0 40px -8px rgba(168, 85, 247, 0.5);
-  text-align: left;
-  text-shadow:
-    0 2px 18px rgba(5, 5, 16, 0.95),
-    0 0 8px rgba(5, 5, 16, 0.9);
-}
-
-.astre-card::-webkit-scrollbar {
-  width: 4px;
-}
-.astre-card::-webkit-scrollbar-thumb {
-  background: rgba(34, 211, 238, 0.5);
-  border-radius: 999px;
 }

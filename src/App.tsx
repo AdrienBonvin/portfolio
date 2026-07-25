@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { PortfolioScene } from './scene/PortfolioScene';
 import { CursorGlow } from './CursorGlow';
 import { MiniMap } from './MiniMap';
@@ -10,15 +10,43 @@ type SectionProps = {
   index: string;
   title: string;
   align?: 'left' | 'right' | 'center';
-  // mobile: the title becomes a full-screen opener scene starring the section's
-  // celestial object (staged by the 3D scene), with a small tap invitation
-  mobileHint?: string;
+  // mobile: the title gets a screen of its own, so the section's celestial object
+  // has an unobstructed showcase behind it. The body then scrolls in below, on its
+  // own backdrop, while the astre slides away.
+  showcase?: boolean;
   children: ReactNode;
 };
 
-const Section = ({ index, title, align = 'left', mobileHint, children }: SectionProps) => {
+// Fades a body panel in as it enters the viewport. Falls back to "already
+// revealed" when IntersectionObserver is missing: the text must never depend on
+// the observer to be readable.
+const useRevealed = () => {
+  const ref = useRef<HTMLDivElement>(null);
+  const [revealed, setRevealed] = useState(() => typeof IntersectionObserver === 'undefined');
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node || revealed) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) return;
+        setRevealed(true);
+        observer.disconnect();
+      },
+      // fires once the panel is properly on screen, not the instant it pokes in
+      { rootMargin: '0px 0px -12% 0px' },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [revealed]);
+
+  return { ref, revealed };
+};
+
+const Section = ({ index, title, align = 'left', showcase, children }: SectionProps) => {
   const placement =
     align === 'center' ? 'mx-auto text-center' : align === 'right' ? 'ml-auto' : 'mr-auto';
+  const { ref, revealed } = useRevealed();
 
   return (
     // svh: sized to the small viewport so the collapsing mobile URL bar never shifts the layout
@@ -26,11 +54,11 @@ const Section = ({ index, title, align = 'left', mobileHint, children }: Section
       {/* max-w-6xl keeps content near the center on ultrawide screens */}
       <div className="mx-auto w-full max-w-6xl">
         {/* pointer-events: none on mobile so taps reach the 3D objects behind the
-            full-screen title block — only the actual content re-enables them */}
+            full-screen title — only the body panel re-enables them */}
         <div className={`pointer-events-none w-full max-w-2xl md:pointer-events-auto ${placement}`}>
           <div
             className={
-              mobileHint ? 'flex h-svh flex-col justify-start pt-28 md:block md:h-auto md:pt-0' : ''
+              showcase ? 'flex h-svh flex-col justify-start pt-28 md:block md:h-auto md:pt-0' : ''
             }
           >
             <div className="relative">
@@ -48,9 +76,12 @@ const Section = ({ index, title, align = 'left', mobileHint, children }: Section
               />
             </div>
           </div>
-          {/* mobile celestial sections: the body is shown glued to the astre, so it's
-              hidden here but keeps its layout height (scroll pacing) and stays in the DOM (SEO) */}
-          <div className={`holo-text pointer-events-auto ${mobileHint ? 'invisible md:visible' : ''}`}>
+          <div
+            ref={ref}
+            className={`holo-text pointer-events-auto ${showcase ? 'section-panel' : ''} ${
+              showcase && !revealed ? 'is-hidden' : ''
+            }`}
+          >
             {children}
           </div>
         </div>
@@ -136,66 +167,9 @@ export const App = () => {
     };
   }, []);
 
-  // Section bodies live in one place: rendered in the DOM (hidden but present on
-  // mobile) and passed to the scene to be shown glued to each astre on tap.
-  const aboutBody = (
-    <p className="text-xl leading-relaxed text-white/85">
-      {t.about.before}
-      <ExternalLink
-        href={LINKS.youtube}
-        className="text-neon-cyan underline decoration-neon-cyan/40 underline-offset-4 transition hover:decoration-neon-cyan"
-      >
-        {t.about.youtube}
-      </ExternalLink>
-      {t.about.after}
-    </p>
-  );
-
-  const experienceBody = (
-    <div className="space-y-10">
-      {t.experience.entries.map((entry) => (
-        <div key={entry.title}>
-          <h3 className="text-2xl font-bold">{entry.title}</h3>
-          <p className="mt-1 text-sm tracking-widest text-white/50 uppercase">{entry.period}</p>
-          <TagPills tags={entry.tags} />
-          <p className="mt-4 text-lg text-white/75">{entry.text}</p>
-        </div>
-      ))}
-    </div>
-  );
-
-  const projectsBody = (
-    <div className="space-y-10">
-      {t.projects.items.map((project) => (
-        <div key={project.title}>
-          <h3 className="text-2xl font-bold">{project.title}</h3>
-          <TagPills tags={project.tags} />
-          <p className="mt-4 text-lg text-white/75">{project.text}</p>
-          <div className="mt-4 flex flex-wrap gap-3">
-            {project.links.map((link) => (
-              <ExternalLink
-                key={link.href}
-                href={link.href}
-                className="rounded-full border border-neon-cyan/50 px-4 py-1.5 text-sm font-bold text-neon-cyan transition hover:bg-neon-cyan/10 hover:shadow-[0_0_25px_-5px_#22d3ee]"
-              >
-                {link.label} ↗
-              </ExternalLink>
-            ))}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-
   return (
     <>
-      <PortfolioScene
-        content={{
-          planet: { hint: t.spacers.planet, body: aboutBody },
-          blackHole: { hint: t.spacers.blackHole, body: experienceBody },
-          supernova: { hint: t.spacers.supernova, body: projectsBody },
-        }}
-      />
+      <PortfolioScene hints={t.spacers} />
       <CursorGlow />
       <MiniMap />
       <LangToggle />
@@ -210,20 +184,57 @@ export const App = () => {
           <div className="mt-16 animate-bounce text-white/50">{t.hero.scroll}</div>
         </section>
 
-        <Section index="01" title={t.about.title} mobileHint={t.spacers.planet}>
-          {aboutBody}
+        <Section index="01" title={t.about.title} showcase>
+          <p className="text-lg leading-relaxed text-white/85 md:text-xl">
+            {t.about.before}
+            <ExternalLink
+              href={LINKS.youtube}
+              className="text-neon-cyan underline decoration-neon-cyan/40 underline-offset-4 transition hover:decoration-neon-cyan"
+            >
+              {t.about.youtube}
+            </ExternalLink>
+            {t.about.after}
+          </p>
         </Section>
 
-        <Section index="02" title={t.experience.title} align="right" mobileHint={t.spacers.blackHole}>
-          {experienceBody}
+        <Section index="02" title={t.experience.title} align="right" showcase>
+          <div className="space-y-8 md:space-y-10">
+            {t.experience.entries.map((entry) => (
+              <div key={entry.title}>
+                <h3 className="text-xl font-bold md:text-2xl">{entry.title}</h3>
+                <p className="mt-1 text-sm tracking-widest text-white/50 uppercase">{entry.period}</p>
+                <TagPills tags={entry.tags} />
+                <p className="mt-4 text-white/75 md:text-lg">{entry.text}</p>
+              </div>
+            ))}
+          </div>
         </Section>
 
-        <Section index="03" title={t.projects.title} mobileHint={t.spacers.supernova}>
-          {projectsBody}
+        <Section index="03" title={t.projects.title} showcase>
+          <div className="space-y-8 md:space-y-10">
+            {t.projects.items.map((project) => (
+              <div key={project.title}>
+                <h3 className="text-xl font-bold md:text-2xl">{project.title}</h3>
+                <TagPills tags={project.tags} />
+                <p className="mt-4 text-white/75 md:text-lg">{project.text}</p>
+                <div className="mt-4 flex flex-wrap gap-3">
+                  {project.links.map((link) => (
+                    <ExternalLink
+                      key={link.href}
+                      href={link.href}
+                      className="rounded-full border border-neon-cyan/50 px-4 py-1.5 text-sm font-bold text-neon-cyan transition hover:bg-neon-cyan/10 hover:shadow-[0_0_25px_-5px_#22d3ee]"
+                    >
+                      {link.label} ↗
+                    </ExternalLink>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
         </Section>
 
         <Section index="04" title={t.contact.title} align="center">
-          <p className="text-xl text-white/85">{t.contact.text}</p>
+          <p className="text-lg text-white/85 md:text-xl">{t.contact.text}</p>
           <p className="mt-6 animate-pulse text-sm font-bold tracking-[0.3em] text-neon-cyan/80 uppercase">
             {t.contact.hint}
           </p>
