@@ -374,6 +374,12 @@ const flybyPlacement = (cam: THREE.Camera, fly: Flyby) => {
 
 type SignPhase = 'hidden' | 'hint' | 'card';
 
+// r3f registers its listeners on the canvas' *parent*, which also hosts the DOM panel
+// drei renders — so taps on the text reach the 3D handlers too. Those belong to the
+// panel (scrolling, links): they must neither poke the astre nor close the card.
+const fromPanel = (event: { target: EventTarget | null }) =>
+  Boolean((event.target as HTMLElement | null)?.closest?.('.astre-card'));
+
 // Drives the astre's flyby position/visibility and the sign's phase every frame,
 // re-rendering only when the phase actually changes (not on every frame).
 const useCelestialStage = (root: RefObject<THREE.Group | null>, fly?: Flyby) => {
@@ -401,18 +407,37 @@ const useCelestialStage = (root: RefObject<THREE.Group | null>, fly?: Flyby) => 
     }
   });
 
-  // Tapping the astre only reveals the card while it's centered.
-  const revealCard = () => {
-    if (near.current) tapped.current = true;
+  // Tapping the astre opens the card while it's centered — and closes it again.
+  // The astre's hitbox covers most of a phone screen at closest approach, so a tap
+  // "outside the panel" almost always lands on it: without the toggle there would
+  // be nothing left to tap to close the card.
+  const toggleCard = () => {
+    if (near.current) tapped.current = !tapped.current;
   };
-  return { phase: fly ? phase : 'hidden', revealCard };
+
+  // Taps that hit nothing at all (or another object) also close it. Clearing the ref
+  // is enough: the next frame swaps the card back for the tap invitation.
+  const closeCard = (event: MouseEvent) => {
+    if (fromPanel(event)) return;
+    tapped.current = false;
+  };
+
+  return { phase: fly ? phase : 'hidden', toggleCard, closeCard };
 };
 
 // The DOM panel glued to the astre: short 3D-ish invite, then the crisp section card.
 const CelestialSign = ({ phase, hint, children }: { phase: SignPhase; hint?: string; children?: ReactNode }) => {
   if (phase === 'hidden') return null;
+  // The invite sits under the astre; the card is centered right on it (its
+  // translucent backdrop keeps the astre visible through the text).
   return (
-    <Html center distanceFactor={9} position={[0, -3, 1.5]} zIndexRange={[40, 0]} style={{ pointerEvents: phase === 'card' ? 'auto' : 'none' }}>
+    <Html
+      center
+      distanceFactor={9}
+      position={phase === 'card' ? [0, 0, 1.5] : [0, -3, 1.5]}
+      zIndexRange={[40, 0]}
+      style={{ pointerEvents: phase === 'card' ? 'auto' : 'none' }}
+    >
       {phase === 'hint' ? <div className="astre-hint">{hint}</div> : <div className="astre-card">{children}</div>}
     </Html>
   );
@@ -427,7 +452,7 @@ const Planet = ({ position, scale = 1, fly, hint, body }: CelestialProps) => {
   const ringBoost = useRef(0);
   const [hovered, setHovered] = useState(false);
   useCursor(hovered);
-  const { phase, revealCard } = useCelestialStage(root, fly);
+  const { phase, toggleCard, closeCard } = useCelestialStage(root, fly);
 
   useFrame((_, delta) => {
     if (planet.current) planet.current.rotation.y += delta * 0.15;
@@ -454,9 +479,11 @@ const Planet = ({ position, scale = 1, fly, hint, body }: CelestialProps) => {
           }}
           onClick={(e) => {
             e.stopPropagation();
+            if (fromPanel(e.nativeEvent)) return;
             ringBoost.current += 14;
-            revealCard();
+            toggleCard();
           }}
+          onPointerMissed={closeCard}
         >
           <sphereGeometry args={[4, 16, 16]} />
           <meshBasicMaterial transparent opacity={0} depthWrite={false} />
@@ -545,7 +572,7 @@ const BlackHole = ({ position, scale = 1, fly, hint, body }: CelestialProps) => 
   const suckT = useRef(-1);
   const [hovered, setHovered] = useState(false);
   useCursor(hovered);
-  const { phase, revealCard } = useCelestialStage(root, fly);
+  const { phase, toggleCard, closeCard } = useCelestialStage(root, fly);
 
   const seeds = useMemo(
     () =>
@@ -599,9 +626,11 @@ const BlackHole = ({ position, scale = 1, fly, hint, body }: CelestialProps) => 
         }}
         onClick={(e) => {
           e.stopPropagation();
+          if (fromPanel(e.nativeEvent)) return;
           suckT.current = 0;
-          revealCard();
+          toggleCard();
         }}
+        onPointerMissed={closeCard}
       >
         <sphereGeometry args={[3.2, 16, 16]} />
         <meshBasicMaterial transparent opacity={0} depthWrite={false} />
@@ -656,7 +685,7 @@ const Supernova = ({ position, scale = 1, fly, hint, body }: CelestialProps) => 
   const flash = useRef(0);
   const [hovered, setHovered] = useState(false);
   useCursor(hovered);
-  const { phase, revealCard } = useCelestialStage(root, fly);
+  const { phase, toggleCard, closeCard } = useCelestialStage(root, fly);
 
   const seeds = useMemo(
     () =>
@@ -728,10 +757,12 @@ const Supernova = ({ position, scale = 1, fly, hint, body }: CelestialProps) => 
         }}
         onClick={(e) => {
           e.stopPropagation();
+          if (fromPanel(e.nativeEvent)) return;
           burstT.current = 0;
           flash.current = 1;
-          revealCard();
+          toggleCard();
         }}
+        onPointerMissed={closeCard}
       >
         <sphereGeometry args={[2.6, 16, 16]} />
         <meshBasicMaterial transparent opacity={0} depthWrite={false} />
