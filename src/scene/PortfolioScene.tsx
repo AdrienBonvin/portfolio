@@ -331,122 +331,29 @@ const Galaxy = ({ position, count = 4000 }: { position: [number, number, number]
   );
 };
 
-// Mobile choreography (Flyby). Instead of the desktop fly-by — fixed world position,
-// camera passing beside it — each astre is placed *relative to the camera* so it rises
-// out of the deep fog, centers, grows, then slides off-screen. It peaks while the
-// section title owns the screen, and is already sliding away by the time the body
-// text scrolls in behind it.
-type Flyby = {
-  win: [number, number]; // journey-progress range where the astre exists at all
-  pk: number; // progress where it's closest & centered
-  hold: number; // progress where it stops holding station and starts leaving
-  side: 1 | -1; // which side it exits toward
-  reveal: [number, number]; // progress range where the tap invitation is shown
-};
-
 type CelestialProps = {
   position: [number, number, number];
   scale?: number;
-  fly?: Flyby;
-  hint?: string;
-};
-
-const FAR = 58; // start distance: past the fog (ends at 42) so the entrance is unseen
-const NEAR = 7; // closest approach: big and centered
-const HOLD = 10; // station-keeping distance: still fills the frame, leaves room for the text
-const PAST = -1; // slips just past the camera plane on exit
-const STAGE_Y = 1; // world height, roughly the camera's gaze line
-const LATERAL = 10; // how far it slides sideways as it leaves
-
-// Camera-relative placement, or null when the astre is outside its window (hidden).
-// Three beats: rise out of the fog, hold station at arm's length while the section
-// is read, then slide off. The hold is what makes the astre a backdrop rather than a
-// blur — apparent size goes as 1/distance, so a single smoothstep from 58 to 7 keeps
-// it a distant speck for most of its window and then blows it past in a couple
-// hundred pixels of scroll, leaving the body text on empty space.
-const flybyPlacement = (cam: THREE.Camera, fly: Flyby) => {
-  const p = scrollState.progress;
-  if (p <= fly.win[0] || p >= fly.win[1]) return null;
-  let dist: number;
-  let lateral = 0;
-  if (p < fly.pk) {
-    dist = THREE.MathUtils.lerp(FAR, NEAR, THREE.MathUtils.smoothstep(p, fly.win[0], fly.pk));
-  } else if (p < fly.hold) {
-    // eases back a touch instead of freezing, so it still reads as drifting past
-    dist = THREE.MathUtils.lerp(NEAR, HOLD, THREE.MathUtils.smoothstep(p, fly.pk, fly.hold));
-  } else {
-    const t = THREE.MathUtils.smoothstep(p, fly.hold, fly.win[1]);
-    dist = THREE.MathUtils.lerp(HOLD, PAST, t);
-    lateral = fly.side * t * t * LATERAL;
-  }
-  return { x: cam.position.x + lateral, y: STAGE_Y, z: cam.position.z - dist };
+  // portrait: the astre keeps a fixed world position like on desktop, but pulled
+  // toward the middle of the corridor so a narrow frame still catches it
+  mobile?: boolean;
 };
 
 // The hover hitbox around each astre is deliberately oversized on desktop, so the
-// camera can lean in without the pointer ever falling off. On mobile the flyby
-// brings the astre to within a few units of the camera: at that distance the same
-// sphere blankets the screen and swallows every tap meant for empty space, so it
-// hugs the object instead.
-const hitbox = (desktop: number, mobile: number, fly?: Flyby) => (fly ? mobile : desktop);
-
-// Drives the astre's flyby position/visibility, and whether its tap invitation is
-// on screen — re-rendering only when that changes, not on every frame.
-const useCelestialStage = (root: RefObject<THREE.Group | null>, fly?: Flyby) => {
-  const [inviting, setInviting] = useState(false);
-  const invitingRef = useRef(false);
-
-  useFrame(({ camera }) => {
-    if (!fly || !root.current) return;
-    const place = flybyPlacement(camera, fly);
-    if (place) {
-      root.current.visible = true;
-      root.current.position.set(place.x, place.y, place.z);
-    } else {
-      root.current.visible = false;
-    }
-    const p = scrollState.progress;
-    const want = p > fly.reveal[0] && p < fly.reveal[1];
-    if (want !== invitingRef.current) {
-      invitingRef.current = want;
-      setInviting(want);
-    }
-  });
-
-  return fly ? inviting : false;
-};
-
-// Tap invitation glued to the astre around its closest approach. The section text
-// no longer lives in here — it's ordinary page content now — so this only advertises
-// the astre's own reaction: spinning rings, swallowed matter, an explosion.
-//
-// It sits *above* the astre: the body panel rises from the bottom of the screen well
-// before the astre peaks, and the canvas layer is painted under <main>, so anything
-// hung below the astre ends up ghosting behind that panel and the mini-map.
-const TapInvite = ({ inviting, hint }: { inviting: boolean; hint?: string }) => {
-  if (!inviting || !hint) return null;
-  return (
-    <Html
-      center
-      distanceFactor={6}
-      position={[0, 2.6, 1.5]}
-      zIndexRange={[40, 0]}
-      style={{ pointerEvents: 'none' }}
-    >
-      <div className="astre-hint">{hint}</div>
-    </Html>
-  );
-};
+// camera can lean in without the pointer ever falling off. A phone frame is much
+// narrower, so the same sphere covers the screen as the camera draws level with the
+// astre and swallows every tap meant for empty space — there it hugs the object.
+const hitbox = (desktop: number, mobile: number, isMobile?: boolean) =>
+  isMobile ? mobile : desktop;
 
 // Ringed planet — companion of the "À propos" section. Click: the rings spin wildly.
-const Planet = ({ position, scale = 1, fly, hint }: CelestialProps) => {
-  const root = useRef<THREE.Group>(null);
+const Planet = ({ position, scale = 1, mobile }: CelestialProps) => {
   const planet = useRef<THREE.Group>(null);
   const rings = useRef<THREE.Group>(null);
   const moonOrbit = useRef<THREE.Group>(null);
   const ringBoost = useRef(0);
   const [hovered, setHovered] = useState(false);
   useCursor(hovered);
-  const inviting = useCelestialStage(root, fly);
 
   useFrame((_, delta) => {
     if (planet.current) planet.current.rotation.y += delta * 0.15;
@@ -456,8 +363,7 @@ const Planet = ({ position, scale = 1, fly, hint }: CelestialProps) => {
   });
 
   return (
-    // outer group: flyby position/visibility (mobile) · inner group keeps spinning
-    <group ref={root} position={position} scale={scale}>
+    <group position={position} scale={scale}>
       <Float speed={0.8} rotationIntensity={0.1} floatIntensity={0.5}>
       <group ref={planet} rotation={[0.35, 0, -0.15]}>
         {/* invisible hitbox: keeps the hover alive while the camera leans in */}
@@ -476,7 +382,7 @@ const Planet = ({ position, scale = 1, fly, hint }: CelestialProps) => {
             ringBoost.current += 14;
           }}
         >
-          <sphereGeometry args={[hitbox(4, 2.8, fly), 16, 16]} />
+          <sphereGeometry args={[hitbox(4, 2.8, mobile), 16, 16]} />
           <meshBasicMaterial transparent opacity={0} depthWrite={false} />
         </mesh>
         {/* core */}
@@ -544,7 +450,6 @@ const Planet = ({ position, scale = 1, fly, hint }: CelestialProps) => {
         </group>
       </group>
       </Float>
-      <TapInvite inviting={inviting} hint={hint} />
     </group>
   );
 };
@@ -553,15 +458,13 @@ const Planet = ({ position, scale = 1, fly, hint }: CelestialProps) => {
 // Click: it swallows a swirl of matter spiraling into the event horizon.
 const SUCK_COUNT = 110;
 
-const BlackHole = ({ position, scale = 1, fly, hint }: CelestialProps) => {
-  const root = useRef<THREE.Group>(null);
+const BlackHole = ({ position, scale = 1, mobile }: CelestialProps) => {
   const disk = useRef<THREE.Group>(null);
   const swirl = useRef<THREE.Points>(null);
   // -1 = idle, otherwise progress of the suck animation in [0, ~1.5]
   const suckT = useRef(-1);
   const [hovered, setHovered] = useState(false);
   useCursor(hovered);
-  const inviting = useCelestialStage(root, fly);
 
   const seeds = useMemo(
     () =>
@@ -599,8 +502,7 @@ const BlackHole = ({ position, scale = 1, fly, hint }: CelestialProps) => {
   });
 
   return (
-    // outer group: flyby position/visibility (mobile) · inner group keeps the tilt
-    <group ref={root} position={position} scale={scale}>
+    <group position={position} scale={scale}>
       <group rotation={[0.9, 0.15, 0]}>
       {/* invisible hitbox: keeps the hover alive while the camera leans in */}
       <mesh
@@ -618,7 +520,7 @@ const BlackHole = ({ position, scale = 1, fly, hint }: CelestialProps) => {
           suckT.current = 0;
         }}
       >
-        <sphereGeometry args={[hitbox(3.2, 2.2, fly), 16, 16]} />
+        <sphereGeometry args={[hitbox(3.2, 2.2, mobile), 16, 16]} />
         <meshBasicMaterial transparent opacity={0} depthWrite={false} />
       </mesh>
       <mesh>
@@ -649,7 +551,6 @@ const BlackHole = ({ position, scale = 1, fly, hint }: CelestialProps) => {
         </mesh>
       </group>
       </group>
-      <TapInvite inviting={inviting} hint={hint} />
     </group>
   );
 };
@@ -657,8 +558,7 @@ const BlackHole = ({ position, scale = 1, fly, hint }: CelestialProps) => {
 // Pulsing supernova — companion of "Projets". Click: it explodes in a particle burst.
 const BURST_COUNT = 150;
 
-const Supernova = ({ position, scale = 1, fly, hint }: CelestialProps) => {
-  const root = useRef<THREE.Group>(null);
+const Supernova = ({ position, scale = 1, mobile }: CelestialProps) => {
   const core = useRef<THREE.Mesh>(null);
   const coreMaterial = useRef<THREE.MeshStandardMaterial>(null);
   const shockwave = useRef<THREE.Mesh>(null);
@@ -669,7 +569,6 @@ const Supernova = ({ position, scale = 1, fly, hint }: CelestialProps) => {
   const flash = useRef(0);
   const [hovered, setHovered] = useState(false);
   useCursor(hovered);
-  const inviting = useCelestialStage(root, fly);
 
   const seeds = useMemo(
     () =>
@@ -727,7 +626,7 @@ const Supernova = ({ position, scale = 1, fly, hint }: CelestialProps) => {
   });
 
   return (
-    <group ref={root} position={position} scale={scale}>
+    <group position={position} scale={scale}>
       {/* invisible hitbox: keeps the hover alive while the camera leans in */}
       <mesh
         onPointerOver={(e) => {
@@ -745,7 +644,7 @@ const Supernova = ({ position, scale = 1, fly, hint }: CelestialProps) => {
           flash.current = 1;
         }}
       >
-        <sphereGeometry args={[hitbox(2.6, 1.8, fly), 16, 16]} />
+        <sphereGeometry args={[hitbox(2.6, 1.8, mobile), 16, 16]} />
         <meshBasicMaterial transparent opacity={0} depthWrite={false} />
       </mesh>
       <mesh ref={core}>
@@ -773,10 +672,9 @@ const Supernova = ({ position, scale = 1, fly, hint }: CelestialProps) => {
           blending={THREE.AdditiveBlending}
         />
       </points>
-      {/* the mobile flyby parks this a couple of units from the lens, where the full
-          desktop intensity washes the whole screen pink through the bloom pass */}
-      <pointLight intensity={fly ? 12 : 25} color="#f472b6" distance={14} />
-      <TapInvite inviting={inviting} hint={hint} />
+      {/* on a phone the camera passes much closer to this than the framing suggests,
+          and the full desktop intensity washes the screen pink through the bloom pass */}
+      <pointLight intensity={mobile ? 12 : 25} color="#f472b6" distance={14} />
     </group>
   );
 };
@@ -1234,9 +1132,7 @@ const CaptureCamera = ({ cameraRef }: { cameraRef: RefObject<THREE.Camera | null
 
 const COMET_COLORS = [NEON.cyan, NEON.pink, NEON.violet];
 
-export type CelestialHints = { planet: string; blackHole: string; supernova: string };
-
-export const PortfolioScene = ({ hints }: { hints?: CelestialHints }) => {
+export const PortfolioScene = () => {
   const cameraRef = useRef<THREE.Camera | null>(null);
   const [shots, setShots] = useState<CometShot[]>([]);
   const nextId = useRef(0);
@@ -1283,45 +1179,39 @@ export const PortfolioScene = ({ hints }: { hints?: CelestialHints }) => {
 
       <CameraRig />
 
-      {CLUSTERS.flat().map((shape, index) => (
-        <NeonShape
-          key={index}
-          {...shape}
-          position={[
-            shape.position[0] * xFactor,
-            // portrait: shapes ride higher and smaller to stay off the text
-            shape.position[1] + (portrait ? 1 : 0),
-            shape.position[2],
-          ]}
-          scale={shape.scale ? shape.scale * (portrait ? 0.7 : 1) : undefined}
-        />
-      ))}
+      {/* the wireframe clutter is desktop-only: on a phone it crowds a frame that is
+          already carrying an astre, the section title and a panel of body text */}
+      {!portrait &&
+        CLUSTERS.flat().map((shape, index) => (
+          <NeonShape
+            key={index}
+            {...shape}
+            position={[shape.position[0] * xFactor, shape.position[1], shape.position[2]]}
+          />
+        ))}
 
-      {/* mobile: each astre rises out of the deep fog, peaks while its section title
-          owns the screen, then slides off as the body text scrolls in — so the text
-          is never read against a planet filling the viewport. Each section spans a
-          quarter of the journey; the peak sits early in it, where the title still is.
-          desktop: fixed off-center positions the camera drifts past (fly === undefined) */}
+      {/* Same fixed world positions on both: the astres sit on the corridor from the
+          first frame and the camera drifts past them, so each one is on screen — far,
+          then close — well before its section arrives. Portrait only pulls them toward
+          the middle of the corridor, since a phone frame is a third as wide and would
+          otherwise never catch them. Depths are shared, so the pacing is identical. */}
       <Planet
-        position={[5.5, 2, -20]}
+        position={portrait ? [1.8, 1.8, -20] : [5.5, 2, -20]}
         scale={portrait ? 0.85 : 1}
-        fly={portrait ? { win: [0.22, 0.49], pk: 0.3, hold: 0.44, side: 1, reveal: [0.29, 0.35] } : undefined}
-        hint={hints?.planet}
+        mobile={portrait}
       />
       <BlackHole
-        position={[-8, 4, -35]}
+        position={portrait ? [-2.4, 3.8, -35] : [-8, 4, -35]}
         scale={portrait ? 0.85 : 1}
-        fly={portrait ? { win: [0.47, 0.74], pk: 0.55, hold: 0.69, side: -1, reveal: [0.54, 0.6] } : undefined}
-        hint={hints?.blackHole}
+        mobile={portrait}
       />
       <Supernova
-        position={[12, 3.5, -48]}
+        position={portrait ? [2.2, 2.4, -48] : [12, 3.5, -48]}
         // smaller than its siblings on mobile: it is the only astre that is a light
-        // source, and at flyby range a full-size one hazes the whole frame through
-        // the bloom pass, taking the body text's contrast with it
+        // source, and close up a full-size one hazes the whole frame through the
+        // bloom pass, taking the body text's contrast with it
         scale={portrait ? 0.62 : 1}
-        fly={portrait ? { win: [0.72, 0.99], pk: 0.8, hold: 0.94, side: 1, reveal: [0.79, 0.85] } : undefined}
-        hint={hints?.supernova}
+        mobile={portrait}
       />
       <Galaxy position={[0, 6, -66]} count={portrait ? 2200 : 4000} />
       {CONTACT_LOGOS.map((logo) => (

@@ -169,7 +169,7 @@ export const App = () => {
 
   return (
     <>
-      <PortfolioScene hints={t.spacers} />
+      <PortfolioScene />
       <CursorGlow />
       <MiniMap />
       <LangToggle />
