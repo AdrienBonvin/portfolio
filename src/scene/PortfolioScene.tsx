@@ -542,6 +542,12 @@ const orbitGeometry = ({
 const heroVeil = (mobile?: boolean) =>
   mobile ? THREE.MathUtils.smoothstep(scrollState.progress, 0.03, 0.19) : 1;
 
+// The opaque parts — a planet core, an event horizon — cannot be faded without
+// making their materials transparent, and that drops them into the sorted pass
+// where additive grains behind them draw straight through. So they are not faded
+// at all: the whole astre is simply absent until the veil is well underway.
+const HERO_GATE = 0.22;
+
 // Shared by every band: the point size has to track the drawing buffer and the
 // warp effect's field of view, since gl_PointSize is in device pixels.
 const pixelsPerUnit = (height: number, dpr: number, camera: THREE.Camera) => {
@@ -554,7 +560,6 @@ const Planet = ({ position, scale = 1, mobile }: CelestialProps) => {
   const planet = useRef<THREE.Group>(null);
   const rings = useRef<THREE.Group>(null);
   const moonOrbit = useRef<THREE.Group>(null);
-  const moonMaterial = useRef<THREE.MeshStandardMaterial>(null);
   const ringMaterial = useRef<THREE.ShaderMaterial>(null);
   const atmosphere = useRef<THREE.ShaderMaterial>(null);
   const bands = useRef<THREE.ShaderMaterial>(null);
@@ -625,8 +630,7 @@ const Planet = ({ position, scale = 1, mobile }: CelestialProps) => {
     }
 
     const veil = heroVeil(mobile);
-    // a fully transparent mesh still writes depth, punching a hole in the starfield
-    if (root.current) root.current.visible = veil > 0.02;
+    if (root.current) root.current.visible = veil > HERO_GATE;
     if (ringMaterial.current) {
       ringMaterial.current.uniforms.uTime.value = ringClock.current;
       ringMaterial.current.uniforms.uShock.value = shock.current;
@@ -637,11 +641,7 @@ const Planet = ({ position, scale = 1, mobile }: CelestialProps) => {
       atmosphere.current.uniforms.uIntensity.value = (1 + flash.current * 3.5) * veil;
     }
     if (bands.current) bands.current.uniforms.uIntensity.value = (1 + flash.current * 2.5) * veil;
-    if (core.current) {
-      core.current.emissiveIntensity = (0.45 + flash.current * 2.2) * veil;
-      core.current.opacity = veil;
-    }
-    if (moonMaterial.current) moonMaterial.current.opacity = veil;
+    if (core.current) core.current.emissiveIntensity = (0.45 + flash.current * 2.2) * veil;
 
     const t = shock.current;
     if (blast.current && blastMaterial.current) {
@@ -699,7 +699,6 @@ const Planet = ({ position, scale = 1, mobile }: CelestialProps) => {
             emissive="#7c3aed"
             emissiveIntensity={0.45}
             roughness={0.35}
-            transparent
           />
         </mesh>
         {/* banded cloud deck */}
@@ -777,13 +776,7 @@ const Planet = ({ position, scale = 1, mobile }: CelestialProps) => {
         <group ref={moonOrbit} rotation={[0.45, 0, 0.25]}>
           <mesh position={[2.95, 0, 0]}>
             <sphereGeometry args={[0.22, 24, 24]} />
-            <meshStandardMaterial
-              ref={moonMaterial}
-              color="#0a0a18"
-              emissive="#e2e8f0"
-              emissiveIntensity={1.4}
-              transparent
-            />
+            <meshStandardMaterial color="#0a0a18" emissive="#e2e8f0" emissiveIntensity={1.4} />
           </mesh>
         </group>
       </group>
@@ -798,7 +791,7 @@ const Planet = ({ position, scale = 1, mobile }: CelestialProps) => {
 // the limb turning toward the camera. Click: the disc collapses inward and the
 // hole answers with relativistic jets.
 
-const DISC_INNER = 2.4;
+const DISC_INNER = 1.45;
 const DISC_OUTER = 5.4;
 
 // Two opposing beams along the disc axis, fired on click. Idle costs nothing:
@@ -871,7 +864,6 @@ const BlackHole = ({ position, scale = 1, mobile }: CelestialProps) => {
   const jetMaterial = useRef<THREE.ShaderMaterial>(null);
   const photonRing = useRef<THREE.Mesh>(null);
   const photonMaterial = useRef<THREE.MeshBasicMaterial>(null);
-  const horizonMaterial = useRef<THREE.MeshBasicMaterial>(null);
   const lens = useRef<THREE.ShaderMaterial>(null);
   const discClock = useRef(0);
   const discBoost = useRef(0);
@@ -891,10 +883,10 @@ const BlackHole = ({ position, scale = 1, mobile }: CelestialProps) => {
         thickness: 0.1,
         size: [0.05, 0.1],
         // white-hot at the horizon, cooling outward
-        stops: ['#ffd2ea', NEON.pink, '#6d28d9'],
+        stops: ['#fff1f8', NEON.pink, '#6d28d9'],
         salt: 20,
         // a disc is not an even scatter: it packs in and brightens toward the ISCO
-        bias: 1.55,
+        bias: 1.9,
         falloff: 0.45,
       }),
     [mobile],
@@ -934,14 +926,13 @@ const BlackHole = ({ position, scale = 1, mobile }: CelestialProps) => {
     const pixels = pixelsPerUnit(size.height, viewport.dpr, camera);
 
     const veil = heroVeil(mobile);
-    if (root.current) root.current.visible = veil > 0.02;
+    if (root.current) root.current.visible = veil > HERO_GATE;
     if (discMaterial.current) {
       discMaterial.current.uniforms.uTime.value = discClock.current;
       discMaterial.current.uniforms.uShock.value = t;
       discMaterial.current.uniforms.uScale.value = pixels;
       discMaterial.current.uniforms.uFade.value = veil;
     }
-    if (horizonMaterial.current) horizonMaterial.current.opacity = veil;
     if (jets.current && jetMaterial.current) {
       jets.current.visible = t >= 0;
       if (t >= 0) {
@@ -953,7 +944,7 @@ const BlackHole = ({ position, scale = 1, mobile }: CelestialProps) => {
       photonRing.current.lookAt(camera.position);
       const flareScale = 1 + flare.current * 0.35;
       photonRing.current.scale.set(flareScale, flareScale, 1);
-      photonMaterial.current.opacity = Math.min(1, 0.45 + flare.current) * veil;
+      photonMaterial.current.opacity = Math.min(1, 0.85 + flare.current) * veil;
     }
     if (lens.current) lens.current.uniforms.uIntensity.value = (0.7 + flare.current * 3) * veil;
   });
@@ -986,16 +977,15 @@ const BlackHole = ({ position, scale = 1, mobile }: CelestialProps) => {
           <sphereGeometry args={[hitbox(3.2, 2.2, mobile), 16, 16]} />
           <meshBasicMaterial transparent opacity={0} depthWrite={false} />
         </mesh>
-        {/* Event horizon: the one thing in the scene that emits nothing. It is wider
-            than the physics would want, and the disc starts further out than it
-            used to, because bloom is a post pass — no object can block it, and a
-            white-hot edge hard against a small black disc hazes it to grey. */}
+        {/* event horizon: the one thing in the scene that emits nothing. Opaque,
+            not transparent — a transparent material joins the sorted pass, where
+            additive grains behind it can end up drawn over it */}
         <mesh>
-          <sphereGeometry args={[1.6, 32, 32]} />
-          <meshBasicMaterial ref={horizonMaterial} color="#000000" transparent />
+          <sphereGeometry args={[1, 32, 32]} />
+          <meshBasicMaterial color="#000000" />
         </mesh>
         {/* lensing halo — light bent around the far side of the horizon */}
-        <mesh scale={2.08}>
+        <mesh scale={1.45}>
           <sphereGeometry args={[1, 32, 32]} />
           <shaderMaterial
             ref={lens}
@@ -1037,7 +1027,7 @@ const BlackHole = ({ position, scale = 1, mobile }: CelestialProps) => {
           frame. Inside it, the torus projected as an ellipse and made the round
           horizon read as an oval — and a light ring is a circle from any angle. */}
       <mesh ref={photonRing}>
-        <torusGeometry args={[1.84, 0.024, 12, 96]} />
+        <torusGeometry args={[1.16, 0.022, 12, 96]} />
         <meshBasicMaterial
           ref={photonMaterial}
           color="#ffffff"
@@ -1209,7 +1199,7 @@ const Supernova = ({ position, scale = 1, mobile }: CelestialProps) => {
     const t = blast.current;
 
     const veil = heroVeil(mobile);
-    if (root.current) root.current.visible = veil > 0.02;
+    if (root.current) root.current.visible = veil > HERO_GATE;
     if (core.current) core.current.scale.setScalar(1 + Math.sin(time * 2.5) * 0.14 + flash.current);
     if (coreMaterial.current) coreMaterial.current.opacity = Math.min(1, 0.9 + flash.current) * veil;
     if (corona.current) corona.current.uniforms.uIntensity.value = (1.1 + flash.current * 4) * veil;
