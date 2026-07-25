@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Float, Grid, Html, Stars, Trail, useCursor } from '@react-three/drei';
 import { Bloom, EffectComposer } from '@react-three/postprocessing';
@@ -331,56 +331,116 @@ const Galaxy = ({ position, count = 4000 }: { position: [number, number, number]
   );
 };
 
-// fadeWindow (mobile): [inStart, inEnd, outStart, outEnd] in journey progress.
-// The object grows in as its title screen approaches, then slides out of view
-// sideways while the user scrolls down into the section's text.
+// Mobile choreography (Flyby). Instead of the desktop fly-by — fixed world position,
+// camera passing beside it — each astre is placed *relative to the camera* so it rises
+// out of the deep fog, centers, grows, then slides off-screen. A sign glued to the astre
+// invites a tap; the tap swaps it for the section text.
+type Flyby = {
+  win: [number, number]; // journey-progress range where the astre exists at all
+  pk: number; // progress where it's closest & centered
+  side: 1 | -1; // which side it exits toward
+  reveal: [number, number]; // progress range where the sign is shown
+};
+
 type CelestialProps = {
   position: [number, number, number];
   scale?: number;
-  fadeWindow?: [number, number, number, number];
+  fly?: Flyby;
+  hint?: string;
+  body?: ReactNode;
 };
 
-const SLIDE_DISTANCE = 8;
+const FAR = 58; // start distance: past the fog (ends at 42) so the entrance is unseen
+const NEAR = 7; // closest approach: big and centered
+const PAST = -1; // slips just past the camera plane on exit
+const STAGE_Y = 1; // world height, roughly the camera's gaze line
+const LATERAL = 10; // how far it slides sideways as it leaves
 
-// scale: entrance growth · slide: lateral exit offset · visible: skip render/raycast
-const stageFactors = (fadeWindow: [number, number, number, number] | undefined, x: number) => {
-  if (!fadeWindow) return { scale: 1, slideX: 0, visible: true };
-  const progress = scrollState.progress;
-  const grow = THREE.MathUtils.smoothstep(progress, fadeWindow[0], fadeWindow[1]);
-  const out = THREE.MathUtils.smoothstep(progress, fadeWindow[2], fadeWindow[3]);
-  const direction = x >= 0 ? 1 : -1;
-  return {
-    scale: grow,
-    slideX: out * SLIDE_DISTANCE * direction,
-    visible: grow > 0.02 && out < 0.999,
+// Camera-relative placement, or null when the astre is outside its window (hidden).
+const flybyPlacement = (cam: THREE.Camera, fly: Flyby) => {
+  const p = scrollState.progress;
+  if (p <= fly.win[0] || p >= fly.win[1]) return null;
+  let dist: number;
+  let lateral = 0;
+  if (p < fly.pk) {
+    dist = THREE.MathUtils.lerp(FAR, NEAR, THREE.MathUtils.smoothstep(p, fly.win[0], fly.pk));
+  } else {
+    const t = THREE.MathUtils.smoothstep(p, fly.pk, fly.win[1]);
+    dist = THREE.MathUtils.lerp(NEAR, PAST, t);
+    lateral = fly.side * t * t * LATERAL;
+  }
+  return { x: cam.position.x + lateral, y: STAGE_Y, z: cam.position.z - dist };
+};
+
+type SignPhase = 'hidden' | 'hint' | 'card';
+
+// Drives the astre's flyby position/visibility and the sign's phase every frame,
+// re-rendering only when the phase actually changes (not on every frame).
+const useCelestialStage = (root: RefObject<THREE.Group | null>, fly?: Flyby) => {
+  const [phase, setPhase] = useState<SignPhase>('hidden');
+  const phaseRef = useRef<SignPhase>('hidden');
+  const tapped = useRef(false);
+  const near = useRef(false);
+
+  useFrame(({ camera }) => {
+    if (!fly || !root.current) return;
+    const place = flybyPlacement(camera, fly);
+    if (place) {
+      root.current.visible = true;
+      root.current.position.set(place.x, place.y, place.z);
+    } else {
+      root.current.visible = false;
+    }
+    const p = scrollState.progress;
+    near.current = p > fly.reveal[0] && p < fly.reveal[1];
+    if (!(p > fly.win[0] && p < fly.win[1])) tapped.current = false;
+    const want: SignPhase = near.current ? (tapped.current ? 'card' : 'hint') : 'hidden';
+    if (want !== phaseRef.current) {
+      phaseRef.current = want;
+      setPhase(want);
+    }
+  });
+
+  // Tapping the astre only reveals the card while it's centered.
+  const revealCard = () => {
+    if (near.current) tapped.current = true;
   };
+  return { phase: fly ? phase : 'hidden', revealCard };
+};
+
+// The DOM panel glued to the astre: short 3D-ish invite, then the crisp section card.
+const CelestialSign = ({ phase, hint, children }: { phase: SignPhase; hint?: string; children?: ReactNode }) => {
+  if (phase === 'hidden') return null;
+  return (
+    <Html center distanceFactor={9} position={[0, -3, 1.5]} zIndexRange={[40, 0]} style={{ pointerEvents: phase === 'card' ? 'auto' : 'none' }}>
+      {phase === 'hint' ? <div className="astre-hint">{hint}</div> : <div className="astre-card">{children}</div>}
+    </Html>
+  );
 };
 
 // Ringed planet — companion of the "À propos" section. Click: the rings spin wildly.
-const Planet = ({ position, scale = 1, fadeWindow }: CelestialProps) => {
+const Planet = ({ position, scale = 1, fly, hint, body }: CelestialProps) => {
+  const root = useRef<THREE.Group>(null);
   const planet = useRef<THREE.Group>(null);
   const rings = useRef<THREE.Group>(null);
   const moonOrbit = useRef<THREE.Group>(null);
   const ringBoost = useRef(0);
   const [hovered, setHovered] = useState(false);
   useCursor(hovered);
+  const { phase, revealCard } = useCelestialStage(root, fly);
 
   useFrame((_, delta) => {
-    if (planet.current) {
-      planet.current.rotation.y += delta * 0.15;
-      const stage = stageFactors(fadeWindow, position[0]);
-      planet.current.scale.setScalar(scale * stage.scale);
-      planet.current.position.x = position[0] + stage.slideX;
-      planet.current.visible = stage.visible;
-    }
+    if (planet.current) planet.current.rotation.y += delta * 0.15;
     if (rings.current) rings.current.rotation.z += delta * (0.1 + ringBoost.current);
     if (moonOrbit.current) moonOrbit.current.rotation.y += delta * 0.45;
     ringBoost.current = THREE.MathUtils.damp(ringBoost.current, 0, 1.2, delta);
   });
 
   return (
-    <Float speed={0.8} rotationIntensity={0.1} floatIntensity={0.5}>
-      <group ref={planet} position={position} rotation={[0.35, 0, -0.15]} scale={scale}>
+    // outer group: flyby position/visibility (mobile) · inner group keeps spinning
+    <group ref={root} position={position} scale={scale}>
+      <Float speed={0.8} rotationIntensity={0.1} floatIntensity={0.5}>
+      <group ref={planet} rotation={[0.35, 0, -0.15]}>
         {/* oversized invisible hitbox: keeps the hover alive while the camera leans in */}
         <mesh
           onPointerOver={(e) => {
@@ -395,6 +455,7 @@ const Planet = ({ position, scale = 1, fadeWindow }: CelestialProps) => {
           onClick={(e) => {
             e.stopPropagation();
             ringBoost.current += 14;
+            revealCard();
           }}
         >
           <sphereGeometry args={[4, 16, 16]} />
@@ -464,7 +525,11 @@ const Planet = ({ position, scale = 1, fadeWindow }: CelestialProps) => {
           </mesh>
         </group>
       </group>
-    </Float>
+      </Float>
+      <CelestialSign phase={phase} hint={hint}>
+        {body}
+      </CelestialSign>
+    </group>
   );
 };
 
@@ -472,7 +537,7 @@ const Planet = ({ position, scale = 1, fadeWindow }: CelestialProps) => {
 // Click: it swallows a swirl of matter spiraling into the event horizon.
 const SUCK_COUNT = 110;
 
-const BlackHole = ({ position, scale = 1, fadeWindow }: CelestialProps) => {
+const BlackHole = ({ position, scale = 1, fly, hint, body }: CelestialProps) => {
   const root = useRef<THREE.Group>(null);
   const disk = useRef<THREE.Group>(null);
   const swirl = useRef<THREE.Points>(null);
@@ -480,6 +545,7 @@ const BlackHole = ({ position, scale = 1, fadeWindow }: CelestialProps) => {
   const suckT = useRef(-1);
   const [hovered, setHovered] = useState(false);
   useCursor(hovered);
+  const { phase, revealCard } = useCelestialStage(root, fly);
 
   const seeds = useMemo(
     () =>
@@ -499,12 +565,6 @@ const BlackHole = ({ position, scale = 1, fadeWindow }: CelestialProps) => {
   }, []);
 
   useFrame((_, delta) => {
-    if (root.current) {
-      const stage = stageFactors(fadeWindow, position[0]);
-      root.current.scale.setScalar(scale * stage.scale);
-      root.current.position.x = position[0] + stage.slideX;
-      root.current.visible = stage.visible;
-    }
     if (disk.current) disk.current.rotation.z += delta * (suckT.current >= 0 ? 4 : 0.8);
     if (!swirl.current) return;
     swirl.current.visible = suckT.current >= 0;
@@ -523,7 +583,9 @@ const BlackHole = ({ position, scale = 1, fadeWindow }: CelestialProps) => {
   });
 
   return (
-    <group ref={root} position={position} rotation={[0.9, 0.15, 0]} scale={scale}>
+    // outer group: flyby position/visibility (mobile) · inner group keeps the tilt
+    <group ref={root} position={position} scale={scale}>
+      <group rotation={[0.9, 0.15, 0]}>
       {/* oversized invisible hitbox: keeps the hover alive while the camera leans in */}
       <mesh
         onPointerOver={(e) => {
@@ -538,6 +600,7 @@ const BlackHole = ({ position, scale = 1, fadeWindow }: CelestialProps) => {
         onClick={(e) => {
           e.stopPropagation();
           suckT.current = 0;
+          revealCard();
         }}
       >
         <sphereGeometry args={[3.2, 16, 16]} />
@@ -570,6 +633,10 @@ const BlackHole = ({ position, scale = 1, fadeWindow }: CelestialProps) => {
           <meshStandardMaterial color="#000" emissive="#a855f7" emissiveIntensity={1.8} wireframe />
         </mesh>
       </group>
+      </group>
+      <CelestialSign phase={phase} hint={hint}>
+        {body}
+      </CelestialSign>
     </group>
   );
 };
@@ -577,7 +644,7 @@ const BlackHole = ({ position, scale = 1, fadeWindow }: CelestialProps) => {
 // Pulsing supernova — companion of "Projets". Click: it explodes in a particle burst.
 const BURST_COUNT = 150;
 
-const Supernova = ({ position, scale = 1, fadeWindow }: CelestialProps) => {
+const Supernova = ({ position, scale = 1, fly, hint, body }: CelestialProps) => {
   const root = useRef<THREE.Group>(null);
   const core = useRef<THREE.Mesh>(null);
   const coreMaterial = useRef<THREE.MeshStandardMaterial>(null);
@@ -589,6 +656,7 @@ const Supernova = ({ position, scale = 1, fadeWindow }: CelestialProps) => {
   const flash = useRef(0);
   const [hovered, setHovered] = useState(false);
   useCursor(hovered);
+  const { phase, revealCard } = useCelestialStage(root, fly);
 
   const seeds = useMemo(
     () =>
@@ -615,12 +683,6 @@ const Supernova = ({ position, scale = 1, fadeWindow }: CelestialProps) => {
 
   useFrame(({ clock }, delta) => {
     const t = clock.elapsedTime;
-    if (root.current) {
-      const stage = stageFactors(fadeWindow, position[0]);
-      root.current.scale.setScalar(scale * stage.scale);
-      root.current.position.x = position[0] + stage.slideX;
-      root.current.visible = stage.visible;
-    }
     flash.current = THREE.MathUtils.damp(flash.current, 0, 2.5, delta);
     if (core.current) {
       core.current.scale.setScalar((1 + Math.sin(t * 2.5) * 0.18) * (1 + flash.current * 0.8));
@@ -668,6 +730,7 @@ const Supernova = ({ position, scale = 1, fadeWindow }: CelestialProps) => {
           e.stopPropagation();
           burstT.current = 0;
           flash.current = 1;
+          revealCard();
         }}
       >
         <sphereGeometry args={[2.6, 16, 16]} />
@@ -699,6 +762,9 @@ const Supernova = ({ position, scale = 1, fadeWindow }: CelestialProps) => {
         />
       </points>
       <pointLight intensity={25} color="#f472b6" distance={14} />
+      <CelestialSign phase={phase} hint={hint}>
+        {body}
+      </CelestialSign>
     </group>
   );
 };
@@ -1156,7 +1222,14 @@ const CaptureCamera = ({ cameraRef }: { cameraRef: RefObject<THREE.Camera | null
 
 const COMET_COLORS = [NEON.cyan, NEON.pink, NEON.violet];
 
-export const PortfolioScene = () => {
+type CelestialContent = { hint: string; body: ReactNode };
+export type CelestialContents = {
+  planet: CelestialContent;
+  blackHole: CelestialContent;
+  supernova: CelestialContent;
+};
+
+export const PortfolioScene = ({ content }: { content?: CelestialContents }) => {
   const cameraRef = useRef<THREE.Camera | null>(null);
   const [shots, setShots] = useState<CometShot[]>([]);
   const nextId = useRef(0);
@@ -1217,23 +1290,29 @@ export const PortfolioScene = () => {
         />
       ))}
 
-      {/* mobile: each object stars on its section's title screen (camera stops at
-          progress 1/4, 2/4, 3/4 → z -6, -20, -34), centered below the title, then
-          fades away as the user scrolls down into the section's text */}
+      {/* mobile: each astre flies in from the deep fog, centers after its section
+          title has scrolled up, shows a glued sign to tap, then slides off-screen.
+          desktop: fixed off-center positions the camera drifts past (fly === undefined) */}
       <Planet
-        position={portrait ? [0.3, -1, -15] : [5.5, 2, -20]}
-        scale={portrait ? 0.7 : 1}
-        fadeWindow={portrait ? [0.16, 0.23, 0.265, 0.325] : undefined}
+        position={[5.5, 2, -20]}
+        scale={portrait ? 0.85 : 1}
+        fly={portrait ? { win: [0.27, 0.49], pk: 0.37, side: 1, reveal: [0.32, 0.48] } : undefined}
+        hint={content?.planet.hint}
+        body={content?.planet.body}
       />
       <BlackHole
-        position={portrait ? [-0.3, -1, -29] : [-8, 4, -35]}
-        scale={portrait ? 0.7 : 1}
-        fadeWindow={portrait ? [0.41, 0.48, 0.515, 0.575] : undefined}
+        position={[-8, 4, -35]}
+        scale={portrait ? 0.85 : 1}
+        fly={portrait ? { win: [0.52, 0.74], pk: 0.62, side: -1, reveal: [0.57, 0.73] } : undefined}
+        hint={content?.blackHole.hint}
+        body={content?.blackHole.body}
       />
       <Supernova
-        position={portrait ? [0.3, -0.9, -43] : [12, 3.5, -48]}
-        scale={portrait ? 0.7 : 1}
-        fadeWindow={portrait ? [0.66, 0.73, 0.765, 0.825] : undefined}
+        position={[12, 3.5, -48]}
+        scale={portrait ? 0.85 : 1}
+        fly={portrait ? { win: [0.77, 0.99], pk: 0.88, side: 1, reveal: [0.82, 0.98] } : undefined}
+        hint={content?.supernova.hint}
+        body={content?.supernova.body}
       />
       <Galaxy position={[0, 6, -66]} count={portrait ? 2200 : 4000} />
       {CONTACT_LOGOS.map((logo) => (

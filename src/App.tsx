@@ -46,14 +46,13 @@ const Section = ({ index, title, align = 'left', mobileHint, children }: Section
               <div
                 className={`mb-10 h-px w-44 bg-gradient-to-r from-neon-cyan to-transparent shadow-[0_0_12px_#22d3ee] ${align === 'center' ? 'mx-auto' : ''}`}
               />
-              {mobileHint && (
-                <p className="animate-pulse text-xs font-bold tracking-[0.3em] text-neon-cyan/70 uppercase md:hidden">
-                  {mobileHint}
-                </p>
-              )}
             </div>
           </div>
-          <div className="holo-text pointer-events-auto">{children}</div>
+          {/* mobile celestial sections: the body is shown glued to the astre, so it's
+              hidden here but keeps its layout height (scroll pacing) and stays in the DOM (SEO) */}
+          <div className={`holo-text pointer-events-auto ${mobileHint ? 'invisible md:visible' : ''}`}>
+            {children}
+          </div>
         </div>
       </div>
     </section>
@@ -137,9 +136,66 @@ export const App = () => {
     };
   }, []);
 
+  // Section bodies live in one place: rendered in the DOM (hidden but present on
+  // mobile) and passed to the scene to be shown glued to each astre on tap.
+  const aboutBody = (
+    <p className="text-xl leading-relaxed text-white/85">
+      {t.about.before}
+      <ExternalLink
+        href={LINKS.youtube}
+        className="text-neon-cyan underline decoration-neon-cyan/40 underline-offset-4 transition hover:decoration-neon-cyan"
+      >
+        {t.about.youtube}
+      </ExternalLink>
+      {t.about.after}
+    </p>
+  );
+
+  const experienceBody = (
+    <div className="space-y-10">
+      {t.experience.entries.map((entry) => (
+        <div key={entry.title}>
+          <h3 className="text-2xl font-bold">{entry.title}</h3>
+          <p className="mt-1 text-sm tracking-widest text-white/50 uppercase">{entry.period}</p>
+          <TagPills tags={entry.tags} />
+          <p className="mt-4 text-lg text-white/75">{entry.text}</p>
+        </div>
+      ))}
+    </div>
+  );
+
+  const projectsBody = (
+    <div className="space-y-10">
+      {t.projects.items.map((project) => (
+        <div key={project.title}>
+          <h3 className="text-2xl font-bold">{project.title}</h3>
+          <TagPills tags={project.tags} />
+          <p className="mt-4 text-lg text-white/75">{project.text}</p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            {project.links.map((link) => (
+              <ExternalLink
+                key={link.href}
+                href={link.href}
+                className="rounded-full border border-neon-cyan/50 px-4 py-1.5 text-sm font-bold text-neon-cyan transition hover:bg-neon-cyan/10 hover:shadow-[0_0_25px_-5px_#22d3ee]"
+              >
+                {link.label} ↗
+              </ExternalLink>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
   return (
     <>
-      <PortfolioScene />
+      <PortfolioScene
+        content={{
+          planet: { hint: t.spacers.planet, body: aboutBody },
+          blackHole: { hint: t.spacers.blackHole, body: experienceBody },
+          supernova: { hint: t.spacers.supernova, body: projectsBody },
+        }}
+      />
       <CursorGlow />
       <MiniMap />
       <LangToggle />
@@ -155,57 +211,15 @@ export const App = () => {
         </section>
 
         <Section index="01" title={t.about.title} mobileHint={t.spacers.planet}>
-          <p className="text-xl leading-relaxed text-white/85">
-            {t.about.before}
-            <ExternalLink
-              href={LINKS.youtube}
-              className="text-neon-cyan underline decoration-neon-cyan/40 underline-offset-4 transition hover:decoration-neon-cyan"
-            >
-              {t.about.youtube}
-            </ExternalLink>
-            {t.about.after}
-          </p>
+          {aboutBody}
         </Section>
 
-        <Section
-          index="02"
-          title={t.experience.title}
-          align="right"
-          mobileHint={t.spacers.blackHole}
-        >
-          <div className="space-y-10">
-            {t.experience.entries.map((entry) => (
-              <div key={entry.title}>
-                <h3 className="text-2xl font-bold">{entry.title}</h3>
-                <p className="mt-1 text-sm tracking-widest text-white/50 uppercase">{entry.period}</p>
-                <TagPills tags={entry.tags} />
-                <p className="mt-4 text-lg text-white/75">{entry.text}</p>
-              </div>
-            ))}
-          </div>
+        <Section index="02" title={t.experience.title} align="right" mobileHint={t.spacers.blackHole}>
+          {experienceBody}
         </Section>
 
         <Section index="03" title={t.projects.title} mobileHint={t.spacers.supernova}>
-          <div className="space-y-10">
-            {t.projects.items.map((project) => (
-              <div key={project.title}>
-                <h3 className="text-2xl font-bold">{project.title}</h3>
-                <TagPills tags={project.tags} />
-                <p className="mt-4 text-lg text-white/75">{project.text}</p>
-                <div className="mt-4 flex flex-wrap gap-3">
-                  {project.links.map((link) => (
-                    <ExternalLink
-                      key={link.href}
-                      href={link.href}
-                      className="rounded-full border border-neon-cyan/50 px-4 py-1.5 text-sm font-bold text-neon-cyan transition hover:bg-neon-cyan/10 hover:shadow-[0_0_25px_-5px_#22d3ee]"
-                    >
-                      {link.label} ↗
-                    </ExternalLink>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
+          {projectsBody}
         </Section>
 
         <Section index="04" title={t.contact.title} align="center">
