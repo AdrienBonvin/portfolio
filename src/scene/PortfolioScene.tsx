@@ -346,21 +346,243 @@ type CelestialProps = {
 const hitbox = (desktop: number, mobile: number, isMobile?: boolean) =>
   isMobile ? mobile : desktop;
 
-// Ringed planet — companion of the "À propos" section. Click: the rings spin wildly.
+// ── Ringed planet ──────────────────────────────────────────────────────────
+// Companion of the "À propos" section. The ring is a particle band rather than a
+// pair of wireframe discs: every grain carries its own orbital speed, so the band
+// shears as it turns instead of rotating as one rigid piece.
+
+const RING_INNER = 2.15;
+const RING_OUTER = 3.6;
+const RING_GAP: [number, number] = [2.75, 2.95]; // Cassini-style division
+
+// Orbit and the click shockwave both live in the vertex shader: at a couple of
+// thousand grains, rewriting the position buffer from JS every frame is the one
+// thing that would actually cost something here.
+const RING_VERT = /* glsl */ `
+  attribute float aSpeed;
+  attribute float aSize;
+  attribute vec3 aColor;
+  uniform float uTime;
+  uniform float uShock;  // crest position in [0,1] while a click plays out, else -1
+  uniform float uScale;  // pixels per world unit at one unit of depth
+  varying vec3 vColor;
+  varying float vGlow;
+
+  void main() {
+    float radius = length(position.xz);
+    float angle = uTime * aSpeed;
+    float c = cos(angle);
+    float s = sin(angle);
+    vec3 p = vec3(position.x * c - position.z * s, position.y, position.x * s + position.z * c);
+
+    // a gaussian crest sweeping outward through the band. It starts at the inner
+    // edge, not at the planet's centre, and only fades once it has cleared the ring
+    float front = 1.9 + uShock * 2.85;
+    float offset = radius - front;
+    float wave = exp(-offset * offset * 6.0) * (1.0 - smoothstep(0.3, 0.9, uShock));
+    p.xz *= 1.0 + wave * 0.26;
+    p.y += wave * 0.55;
+
+    vColor = aColor;
+    vGlow = wave;
+
+    vec4 mv = modelViewMatrix * vec4(p, 1.0);
+    // capped: the mobile flyby passes far closer than the desktop track, and
+    // uncapped grains balloon into confetti that no longer reads as a ring
+    gl_PointSize = min(aSize * (1.0 + wave * 2.4) * uScale / max(0.001, -mv.z), 11.0);
+    gl_Position = projectionMatrix * mv;
+  }
+`;
+
+const RING_FRAG = /* glsl */ `
+  varying vec3 vColor;
+  varying float vGlow;
+
+  void main() {
+    vec2 uv = gl_PointCoord - 0.5;
+    float d2 = dot(uv, uv);
+    if (d2 > 0.25) discard;
+    gl_FragColor = vec4(vColor * (1.0 + vGlow * 2.2), smoothstep(0.25, 0.02, d2));
+  }
+`;
+
+// Rim light. A flat back-side sphere gives an even wash; weighting by the viewing
+// angle puts the glow on the limb, where an atmosphere actually shows.
+const GLOW_VERT = /* glsl */ `
+  varying vec3 vNormal;
+  varying vec3 vView;
+  varying vec2 vUv;
+
+  void main() {
+    vec4 mv = modelViewMatrix * vec4(position, 1.0);
+    vNormal = normalize(normalMatrix * normal);
+    vView = normalize(-mv.xyz);
+    vUv = uv;
+    gl_Position = projectionMatrix * mv;
+  }
+`;
+
+const ATMOSPHERE_FRAG = /* glsl */ `
+  uniform vec3 uColor;
+  uniform float uIntensity;
+  varying vec3 vNormal;
+  varying vec3 vView;
+
+  void main() {
+    float rim = pow(1.0 - abs(dot(vNormal, vView)), 3.4);
+    gl_FragColor = vec4(uColor * rim * uIntensity * 1.6, rim * uIntensity);
+  }
+`;
+
+// Latitude bands over the lit core: gas-giant structure, drawn graphically rather
+// than with noise so it stays in the same register as the rest of the scene.
+const BANDS_FRAG = /* glsl */ `
+  uniform float uIntensity;
+  varying vec3 vNormal;
+  varying vec3 vView;
+  varying vec2 vUv;
+
+  void main() {
+    float lat = vUv.y;
+    float bands = sin(lat * 58.0 + sin(lat * 9.0) * 2.6) * 0.5 + 0.5;
+    bands = pow(bands, 2.2);
+    float rim = pow(1.0 - abs(dot(vNormal, vView)), 2.0);
+    vec3 tint = mix(vec3(0.35, 0.12, 0.78), vec3(0.96, 0.45, 0.85), lat);
+    float a = (bands * 0.42 + rim * 0.34) * uIntensity;
+    gl_FragColor = vec4(tint * a, a);
+  }
+`;
+
+// Deterministic grain cloud: colour banded by radius, a clean gap, and Keplerian
+// speeds so inner grains outrun outer ones.
+const useRingGeometry = (count: number) =>
+  useMemo(() => {
+    const positions = new Float32Array(count * 3);
+    const colors = new Float32Array(count * 3);
+    const speeds = new Float32Array(count);
+    const sizes = new Float32Array(count);
+    const inner = new THREE.Color(NEON.cyan);
+    const mid = new THREE.Color(NEON.violet);
+    const outer = new THREE.Color(NEON.pink);
+    const shade = new THREE.Color();
+
+    for (let i = 0; i < count; i++) {
+      let radius = RING_INNER + rand01(i, 70) * (RING_OUTER - RING_INNER);
+      // push anything landing in the division onto one of its edges
+      if (radius > RING_GAP[0] && radius < RING_GAP[1]) {
+        radius = radius < (RING_GAP[0] + RING_GAP[1]) / 2 ? RING_GAP[0] : RING_GAP[1];
+      }
+      const angle = rand01(i, 71) * Math.PI * 2;
+      positions[i * 3] = Math.cos(angle) * radius;
+      positions[i * 3 + 1] = (rand01(i, 72) - 0.5) * 0.08; // the band is paper-thin
+      positions[i * 3 + 2] = Math.sin(angle) * radius;
+
+      speeds[i] = 0.5 * (RING_INNER / radius) ** 1.5 * (0.9 + rand01(i, 73) * 0.2);
+
+      const k = (radius - RING_INNER) / (RING_OUTER - RING_INNER);
+      shade.copy(inner).lerp(mid, Math.min(1, k * 2));
+      if (k > 0.5) shade.copy(mid).lerp(outer, (k - 0.5) * 2);
+      colors[i * 3] = shade.r;
+      colors[i * 3 + 1] = shade.g;
+      colors[i * 3 + 2] = shade.b;
+
+      sizes[i] = 0.045 + rand01(i, 74) * 0.055;
+    }
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geo.setAttribute('aColor', new THREE.BufferAttribute(colors, 3));
+    geo.setAttribute('aSpeed', new THREE.BufferAttribute(speeds, 1));
+    geo.setAttribute('aSize', new THREE.BufferAttribute(sizes, 1));
+    return geo;
+  }, [count]);
+
 const Planet = ({ position, scale = 1, mobile }: CelestialProps) => {
   const planet = useRef<THREE.Group>(null);
   const rings = useRef<THREE.Group>(null);
   const moonOrbit = useRef<THREE.Group>(null);
+  const ringMaterial = useRef<THREE.ShaderMaterial>(null);
+  const atmosphere = useRef<THREE.ShaderMaterial>(null);
+  const bands = useRef<THREE.ShaderMaterial>(null);
+  const core = useRef<THREE.MeshStandardMaterial>(null);
+  const blast = useRef<THREE.Mesh>(null);
+  const blastMaterial = useRef<THREE.MeshBasicMaterial>(null);
+  const halo = useRef<THREE.Mesh>(null);
+  const haloMaterial = useRef<THREE.ShaderMaterial>(null);
+  // orbital clock, so a click can spin the band up without desyncing the grains
+  const ringClock = useRef(0);
   const ringBoost = useRef(0);
+  const moonBoost = useRef(0);
+  // -1 = idle, otherwise the shockwave's progress
+  const shock = useRef(-1);
+  const flash = useRef(0);
   const [hovered, setHovered] = useState(false);
   useCursor(hovered);
 
-  useFrame((_, delta) => {
+  const ringGeometry = useRingGeometry(mobile ? 2200 : 2800);
+  const ringUniforms = useMemo(
+    () => ({ uTime: { value: 0 }, uShock: { value: -1 }, uScale: { value: 600 } }),
+    [],
+  );
+  const atmosphereUniforms = useMemo(
+    () => ({ uColor: { value: new THREE.Color('#8b5cf6') }, uIntensity: { value: 1 } }),
+    [],
+  );
+  const bandUniforms = useMemo(() => ({ uIntensity: { value: 1 } }), []);
+  const haloUniforms = useMemo(
+    () => ({ uColor: { value: new THREE.Color('#a5f3fc') }, uIntensity: { value: 0 } }),
+    [],
+  );
+
+  useFrame(({ camera, size, viewport }, delta) => {
     if (planet.current) planet.current.rotation.y += delta * 0.15;
-    if (rings.current) rings.current.rotation.z += delta * (0.1 + ringBoost.current);
-    if (moonOrbit.current) moonOrbit.current.rotation.y += delta * 0.45;
+    if (moonOrbit.current) moonOrbit.current.rotation.y += delta * (0.45 + moonBoost.current);
     ringBoost.current = THREE.MathUtils.damp(ringBoost.current, 0, 1.2, delta);
+    moonBoost.current = THREE.MathUtils.damp(moonBoost.current, 0, 1.4, delta);
+    flash.current = THREE.MathUtils.damp(flash.current, 0, 3, delta);
+
+    ringClock.current += delta * (1 + ringBoost.current);
+    if (shock.current >= 0) {
+      shock.current += delta / 1.05;
+      if (shock.current > 1.0) shock.current = -1;
+    }
+
+    if (ringMaterial.current) {
+      ringMaterial.current.uniforms.uTime.value = ringClock.current;
+      ringMaterial.current.uniforms.uShock.value = shock.current;
+      // gl_PointSize is in device pixels, so the grains have to be re-scaled
+      // whenever the drawing buffer or the warp effect's field of view changes
+      const fov = camera instanceof THREE.PerspectiveCamera ? camera.fov : 60;
+      ringMaterial.current.uniforms.uScale.value =
+        (size.height * viewport.dpr) / (2 * Math.tan((fov * Math.PI) / 360));
+    }
+    if (atmosphere.current) atmosphere.current.uniforms.uIntensity.value = 1 + flash.current * 3.5;
+    if (bands.current) bands.current.uniforms.uIntensity.value = 1 + flash.current * 2.5;
+    if (core.current) core.current.emissiveIntensity = 0.45 + flash.current * 2.2;
+
+    const t = shock.current;
+    if (blast.current && blastMaterial.current) {
+      blast.current.visible = t >= 0;
+      if (t >= 0) {
+        blast.current.scale.setScalar(1.7 + t * 4.2);
+        blastMaterial.current.opacity = Math.max(0, 1 - t) ** 2.2;
+      }
+    }
+    if (halo.current && haloMaterial.current) {
+      halo.current.visible = t >= 0;
+      if (t >= 0) {
+        halo.current.scale.setScalar(1.15 + t * 1.6);
+        haloMaterial.current.uniforms.uIntensity.value = Math.max(0, 1 - t) ** 4 * 5;
+      }
+    }
   });
+
+  const detonate = () => {
+    shock.current = 0;
+    flash.current = 1;
+    ringBoost.current += 9;
+    moonBoost.current += 6;
+  };
 
   return (
     <group position={position} scale={scale}>
@@ -379,7 +601,7 @@ const Planet = ({ position, scale = 1, mobile }: CelestialProps) => {
           }}
           onClick={(e) => {
             e.stopPropagation();
-            ringBoost.current += 14;
+            detonate();
           }}
         >
           <sphereGeometry args={[hitbox(4, 2.8, mobile), 16, 16]} />
@@ -388,56 +610,82 @@ const Planet = ({ position, scale = 1, mobile }: CelestialProps) => {
         {/* core */}
         <mesh>
           <sphereGeometry args={[1.7, 48, 48]} />
-          <meshStandardMaterial color="#1b1140" emissive="#7c3aed" emissiveIntensity={0.45} roughness={0.35} />
-        </mesh>
-        {/* surface graticule */}
-        <mesh scale={1.01}>
-          <sphereGeometry args={[1.7, 24, 16]} />
           <meshStandardMaterial
-            color="#0a0a18"
-            emissive="#c084fc"
-            emissiveIntensity={0.8}
-            wireframe
-            transparent
-            opacity={0.25}
+            ref={core}
+            color="#160d33"
+            emissive="#7c3aed"
+            emissiveIntensity={0.45}
+            roughness={0.35}
           />
         </mesh>
-        {/* atmosphere glow */}
-        <mesh scale={1.18}>
-          <sphereGeometry args={[1.7, 32, 32]} />
-          <meshBasicMaterial
-            color="#a855f7"
+        {/* banded cloud deck */}
+        <mesh scale={1.008}>
+          <sphereGeometry args={[1.7, 64, 48]} />
+          <shaderMaterial
+            ref={bands}
+            uniforms={bandUniforms}
+            vertexShader={GLOW_VERT}
+            fragmentShader={BANDS_FRAG}
             transparent
-            opacity={0.14}
+            depthWrite={false}
+            blending={THREE.AdditiveBlending}
+          />
+        </mesh>
+        {/* blast shell: a rim-lit bubble racing ahead of the ring wave */}
+        <mesh ref={halo} scale={1.2} visible={false}>
+          <sphereGeometry args={[1.7, 32, 32]} />
+          <shaderMaterial
+            ref={haloMaterial}
+            uniforms={haloUniforms}
+            vertexShader={GLOW_VERT}
+            fragmentShader={ATMOSPHERE_FRAG}
+            transparent
+            depthWrite={false}
             side={THREE.BackSide}
             blending={THREE.AdditiveBlending}
-            depthWrite={false}
           />
         </mesh>
-        {/* double ring system */}
-        <group ref={rings} rotation={[Math.PI / 2.15, 0, 0]}>
-          <mesh>
-            <ringGeometry args={[2.2, 2.9, 80]} />
-            <meshStandardMaterial
-              color="#0a0a18"
-              emissive="#22d3ee"
-              emissiveIntensity={1.3}
-              side={THREE.DoubleSide}
+        {/* atmosphere: rim-weighted, so the glow sits on the limb */}
+        <mesh scale={1.15}>
+          <sphereGeometry args={[1.7, 48, 48]} />
+          <shaderMaterial
+            ref={atmosphere}
+            uniforms={atmosphereUniforms}
+            vertexShader={GLOW_VERT}
+            fragmentShader={ATMOSPHERE_FRAG}
+            transparent
+            depthWrite={false}
+            side={THREE.BackSide}
+            blending={THREE.AdditiveBlending}
+          />
+        </mesh>
+        {/* ring: one draw call, orbits and reacts to clicks on the GPU */}
+        <group ref={rings} rotation={[0.16, 0, 0]}>
+          <points geometry={ringGeometry}>
+            <shaderMaterial
+              ref={ringMaterial}
+              uniforms={ringUniforms}
+              vertexShader={RING_VERT}
+              fragmentShader={RING_FRAG}
               transparent
-              opacity={0.7}
-              wireframe
+              depthWrite={false}
+              blending={THREE.AdditiveBlending}
             />
-          </mesh>
-          <mesh>
-            <ringGeometry args={[3.05, 3.45, 80]} />
-            <meshStandardMaterial
-              color="#0a0a18"
-              emissive="#f472b6"
-              emissiveIntensity={1}
-              side={THREE.DoubleSide}
+          </points>
+          {/* shockwave, expanding in the ring plane */}
+          <mesh ref={blast} visible={false} rotation={[-Math.PI / 2, 0, 0]}>
+            <ringGeometry args={[0.86, 1, 128]} />
+            {/* toneMapped: the canvas tone-maps by default, which crushes a bright
+                additive colour to grey — the one thing this ring must not be */}
+            <meshBasicMaterial
+              ref={blastMaterial}
+              color="#67e8f9"
               transparent
-              opacity={0.35}
-              wireframe
+              opacity={0}
+              side={THREE.DoubleSide}
+              depthWrite={false}
+              toneMapped={false}
+              blending={THREE.AdditiveBlending}
             />
           </mesh>
         </group>
