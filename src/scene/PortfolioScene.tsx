@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { isTouchDevice, scrollState } from '../scrollState';
 import { useIsMobile } from '../useIsMobile';
 import { LINKS } from '../i18n';
+import { ASTRE_DEPTH, cameraZ, inFlyby, markTapped, type AstreKey } from './astres';
 
 // Aspect ratio of the window, kept up to date on resize. Drives the responsive
 // layout of the scene: on narrow screens the celestial objects slide toward the
@@ -28,20 +29,41 @@ const useAspect = () => {
   return aspect;
 };
 
-export const SECTION_COUNT = 5;
-const SECTION_DEPTH = 14;
-
-// Scene fog, also handed to the grain shaders by hand. three only injects its fog
-// chunks into built-in materials, so a raw ShaderMaterial is otherwise the one
-// thing here that never fades with distance — which is why the accretion disc was
-// still at full brightness behind the hero title from 43 units away, one unit past
-// where the fog ends and everything else has already vanished.
+// Scene fog, also handed to every raw shader here by hand. three only injects its fog
+// chunks into built-in materials, so a ShaderMaterial is otherwise the one thing that
+// never fades with distance — which is why the accretion disc was still at full
+// brightness behind the hero title from 43 units away, and why, once the grain bands
+// were fixed, the rim glows went on hanging there with every grain already gone.
 const FOG_NEAR = 8;
 const FOG_FAR = 42;
 
-// Portrait only, per the brief. On desktop the wider frame keeps the astres clear
-// of the hero type, so their grains keep their unlimited reach.
-const fogRange = (mobile?: boolean) => new THREE.Vector2(FOG_NEAR, mobile ? FOG_FAR : 1e6);
+// Portrait only: at the hero the corridor is closed off a few units past the camera,
+// so the astres are still out there in the dark rather than hanging behind the title
+// on a frame a third as wide as a desktop one. It opens back up to FOG_FAR over the
+// first third of the journey, so each astre materialises out of the void as you scroll
+// toward it — which is a better entrance than being visible from the first frame.
+const HERO_FOG_FAR = 19;
+
+// One shared vector, so the drive below reaches every grain shader at once — three
+// only injects its fog chunks into built-in materials, and a raw ShaderMaterial is
+// otherwise the one thing here that never fades with distance.
+const MOBILE_FOG = new THREE.Vector2(FOG_NEAR, HERO_FOG_FAR);
+
+// On desktop the wider frame keeps the astres clear of the hero type, so their grains
+// keep their unlimited reach.
+const fogRange = (mobile?: boolean) =>
+  mobile ? MOBILE_FOG : new THREE.Vector2(FOG_NEAR, 1e6);
+
+const FogDrive = () => {
+  const scene = useThree((state) => state.scene);
+  useFrame((_, delta) => {
+    const open = THREE.MathUtils.smoothstep(scrollState.progress, 0, 0.3);
+    const far = THREE.MathUtils.lerp(HERO_FOG_FAR, FOG_FAR, open);
+    MOBILE_FOG.y = THREE.MathUtils.damp(MOBILE_FOG.y, far, 4, delta);
+    if (scene.fog instanceof THREE.Fog) scene.fog.far = MOBILE_FOG.y;
+  });
+  return null;
+};
 
 const NEON = {
   violet: '#a855f7',
@@ -68,7 +90,7 @@ const CameraRig = () => {
   const warpSpan = touch ? 4200 : 3300;
 
   useFrame(({ camera }, delta) => {
-    const targetZ = 8 - scrollState.progress * SECTION_DEPTH * (SECTION_COUNT - 1);
+    const targetZ = cameraZ(scrollState.progress);
     let px = 0;
     let py = 1.4;
     let pz = targetZ;
@@ -351,12 +373,88 @@ type CelestialProps = {
   mobile?: boolean;
 };
 
-// The hover hitbox around each astre is deliberately oversized on desktop, so the
-// camera can lean in without the pointer ever falling off. A phone frame is much
-// narrower, so the same sphere covers the screen as the camera draws level with the
-// astre and swallows every tap meant for empty space — there it hugs the object.
-const hitbox = (desktop: number, mobile: number, isMobile?: boolean) =>
-  isMobile ? mobile : desktop;
+// Where the camera stands relative to one astre. `live` is the window in which the
+// astre answers the pointer; `shown` drops it off the frame once it is past the fog
+// wall. Portrait only — on desktop both are permanently true.
+const useFlyby = (z: number, enabled?: boolean) => {
+  const [state, setState] = useState({ live: true, shown: true });
+  const current = useRef(state);
+
+  useFrame(({ camera }) => {
+    if (!enabled) return;
+    // the camera flies along -Z, so this is positive while the astre is still ahead
+    const ahead = camera.position.z - z;
+    const next = {
+      live: inFlyby(ahead),
+      // Every shader here now fades with distance, but a handful of small rings are
+      // plain MeshBasicMaterials, and three's fog can only mix those toward the fog
+      // colour — added over the void that is still a smudge, which is what kept
+      // showing through behind the hero title. Past the wall they come off entirely.
+      shown: ahead < MOBILE_FOG.y,
+    };
+    if (next.live === current.current.live && next.shown === current.current.shown) return;
+    current.current = next;
+    setState(next);
+  });
+
+  return state;
+};
+
+// The pointer target around each astre is deliberately oversized, so the camera can
+// lean in without the pointer ever falling off. On a phone the same sphere would cover
+// the screen and swallow every tap meant for empty space — so there it only goes live
+// during the flyby, which is the one moment the astre is worth touching anyway.
+const AstreHitbox = ({
+  radius,
+  live,
+  focus,
+  onHover,
+  onTap,
+}: {
+  radius: number;
+  live: boolean;
+  focus: [number, number, number];
+  onHover: (hovered: boolean) => void;
+  onTap: () => void;
+}) => (
+  <mesh
+    scale={live ? 1 : 0.0001}
+    onPointerOver={(e) => {
+      e.stopPropagation();
+      onHover(true);
+      if (!isTouchDevice()) focusState.target = new THREE.Vector3(...focus);
+    }}
+    onPointerOut={() => {
+      onHover(false);
+      focusState.target = null;
+    }}
+    onClick={(e) => {
+      e.stopPropagation();
+      onTap();
+    }}
+  >
+    <sphereGeometry args={[radius, 16, 16]} />
+    {/* DoubleSide: the portrait camera track flies *through* these spheres, and a
+        front-facing-only target stops answering the moment you are inside it — which
+        is exactly when the astre fills the phone screen and you want to poke it. */}
+    <meshBasicMaterial transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
+  </mesh>
+);
+
+// What a touch device gets in place of the hover it does not have. The astre's own
+// animation fires either way; this is the part that makes the *page* answer — the
+// camera tips toward it for a beat and settles back, which is the difference between
+// a tap that plays an effect and a tap that moves the world. It also retires the
+// affordance chip (AstreHint) for that astre, since the point has been made.
+const answerTap = (key: AstreKey, position: [number, number, number]) => {
+  markTapped(key);
+  if (!isTouchDevice()) return;
+  navigator.vibrate?.(12);
+  focusState.target = new THREE.Vector3(...position);
+  window.setTimeout(() => {
+    focusState.target = null;
+  }, 1400);
+};
 
 // ── Ringed planet ──────────────────────────────────────────────────────────
 // Companion of the "À propos" section. The ring is a particle band rather than a
@@ -431,16 +529,23 @@ const RING_FRAG = /* glsl */ `
 
 // Rim light. A flat back-side sphere gives an even wash; weighting by the viewing
 // angle puts the glow on the limb, where an atmosphere actually shows.
+// Same hand-rolled fog as the grain bands, and for the same reason: these are raw
+// ShaderMaterials, so three injects nothing, and an additive glow that never fades
+// with distance is what was still hanging behind the hero title with every grain of
+// its own astre already gone.
 const GLOW_VERT = /* glsl */ `
+  uniform vec2 uFog;
   varying vec3 vNormal;
   varying vec3 vView;
   varying vec2 vUv;
+  varying float vFog;
 
   void main() {
     vec4 mv = modelViewMatrix * vec4(position, 1.0);
     vNormal = normalize(normalMatrix * normal);
     vView = normalize(-mv.xyz);
     vUv = uv;
+    vFog = 1.0 - clamp((-mv.z - uFog.x) / (uFog.y - uFog.x), 0.0, 1.0);
     gl_Position = projectionMatrix * mv;
   }
 `;
@@ -450,10 +555,11 @@ const ATMOSPHERE_FRAG = /* glsl */ `
   uniform float uIntensity;
   varying vec3 vNormal;
   varying vec3 vView;
+  varying float vFog;
 
   void main() {
     float rim = pow(1.0 - abs(dot(vNormal, vView)), 3.4);
-    gl_FragColor = vec4(uColor * rim * uIntensity * 1.6, rim * uIntensity);
+    gl_FragColor = vec4(uColor * rim * uIntensity * 1.6, rim * uIntensity) * vFog;
   }
 `;
 
@@ -464,6 +570,7 @@ const BANDS_FRAG = /* glsl */ `
   varying vec3 vNormal;
   varying vec3 vView;
   varying vec2 vUv;
+  varying float vFog;
 
   void main() {
     float lat = vUv.y;
@@ -471,7 +578,7 @@ const BANDS_FRAG = /* glsl */ `
     bands = pow(bands, 2.2);
     float rim = pow(1.0 - abs(dot(vNormal, vView)), 2.0);
     vec3 tint = mix(vec3(0.35, 0.12, 0.78), vec3(0.96, 0.45, 0.85), lat);
-    float a = (bands * 0.42 + rim * 0.34) * uIntensity;
+    float a = (bands * 0.42 + rim * 0.34) * uIntensity * vFog;
     gl_FragColor = vec4(tint * a, a);
   }
 `;
@@ -578,6 +685,7 @@ const Planet = ({ position, scale = 1, mobile }: CelestialProps) => {
   const shock = useRef(-1);
   const flash = useRef(0);
   const [hovered, setHovered] = useState(false);
+  const flyby = useFlyby(position[2], mobile);
   useCursor(hovered);
 
   const ringGeometry = useMemo(
@@ -609,13 +717,24 @@ const Planet = ({ position, scale = 1, mobile }: CelestialProps) => {
     [mobile],
   );
   const atmosphereUniforms = useMemo(
-    () => ({ uColor: { value: new THREE.Color('#8b5cf6') }, uIntensity: { value: 1 } }),
-    [],
+    () => ({
+      uColor: { value: new THREE.Color('#8b5cf6') },
+      uIntensity: { value: 1 },
+      uFog: { value: fogRange(mobile) },
+    }),
+    [mobile],
   );
-  const bandUniforms = useMemo(() => ({ uIntensity: { value: 1 } }), []);
+  const bandUniforms = useMemo(
+    () => ({ uIntensity: { value: 1 }, uFog: { value: fogRange(mobile) } }),
+    [mobile],
+  );
   const haloUniforms = useMemo(
-    () => ({ uColor: { value: new THREE.Color('#a5f3fc') }, uIntensity: { value: 0 } }),
-    [],
+    () => ({
+      uColor: { value: new THREE.Color('#a5f3fc') },
+      uIntensity: { value: 0 },
+      uFog: { value: fogRange(mobile) },
+    }),
+    [mobile],
   );
 
   useFrame(({ camera, size, viewport }, delta) => {
@@ -662,31 +781,21 @@ const Planet = ({ position, scale = 1, mobile }: CelestialProps) => {
     flash.current = 1;
     ringBoost.current += 9;
     moonBoost.current += 6;
+    answerTap('planet', position);
   };
 
   return (
-    <group position={position} scale={scale}>
+    <group position={position} scale={scale} visible={flyby.shown}>
       <Float speed={0.8} rotationIntensity={0.1} floatIntensity={0.5}>
       <group ref={planet} rotation={[0.35, 0, -0.15]}>
         {/* invisible hitbox: keeps the hover alive while the camera leans in */}
-        <mesh
-          onPointerOver={(e) => {
-            e.stopPropagation();
-            setHovered(true);
-            if (!isTouchDevice()) focusState.target = new THREE.Vector3(...position);
-          }}
-          onPointerOut={() => {
-            setHovered(false);
-            focusState.target = null;
-          }}
-          onClick={(e) => {
-            e.stopPropagation();
-            detonate();
-          }}
-        >
-          <sphereGeometry args={[hitbox(4, 2.8, mobile), 16, 16]} />
-          <meshBasicMaterial transparent opacity={0} depthWrite={false} />
-        </mesh>
+        <AstreHitbox
+          radius={4}
+          live={!mobile || flyby.live}
+          focus={position}
+          onHover={setHovered}
+          onTap={detonate}
+        />
         {/* core */}
         <mesh>
           <sphereGeometry args={[1.7, 48, 48]} />
@@ -867,6 +976,7 @@ const BlackHole = ({ position, scale = 1, mobile }: CelestialProps) => {
   const collapse = useRef(-1);
   const flare = useRef(0);
   const [hovered, setHovered] = useState(false);
+  const flyby = useFlyby(position[2], mobile);
   useCursor(hovered);
 
   const discGeometry = useMemo(
@@ -905,8 +1015,12 @@ const BlackHole = ({ position, scale = 1, mobile }: CelestialProps) => {
   );
   const jetUniforms = useMemo(() => ({ uJet: { value: 0 }, uScale: { value: 600 } }), []);
   const lensUniforms = useMemo(
-    () => ({ uColor: { value: new THREE.Color('#c4b5fd') }, uIntensity: { value: 1 } }),
-    [],
+    () => ({
+      uColor: { value: new THREE.Color('#c4b5fd') },
+      uIntensity: { value: 1 },
+      uFog: { value: fogRange(mobile) },
+    }),
+    [mobile],
   );
 
   useFrame(({ camera, size, viewport }, delta) => {
@@ -945,30 +1059,22 @@ const BlackHole = ({ position, scale = 1, mobile }: CelestialProps) => {
     collapse.current = 0;
     flare.current = 1;
     discBoost.current += 7;
+    answerTap('blackHole', position);
   };
 
   return (
-    <group position={position} scale={scale}>
+    <group position={position} scale={scale} visible={flyby.shown}>
       <group rotation={[0.9, 0.15, 0]}>
         {/* invisible hitbox: keeps the hover alive while the camera leans in */}
-        <mesh
-          onPointerOver={(e) => {
-            e.stopPropagation();
-            setHovered(true);
-            if (!isTouchDevice()) focusState.target = new THREE.Vector3(...position);
-          }}
-          onPointerOut={() => {
-            setHovered(false);
-            focusState.target = null;
-          }}
-          onClick={(e) => {
-            e.stopPropagation();
-            detonate();
-          }}
-        >
-          <sphereGeometry args={[hitbox(3.2, 2.2, mobile), 16, 16]} />
-          <meshBasicMaterial transparent opacity={0} depthWrite={false} />
-        </mesh>
+        {/* the disc is the widest thing in the scene, and on portrait the track goes
+            straight through it — the target follows it out a little further there */}
+        <AstreHitbox
+          radius={mobile ? 3.8 : 3.2}
+          live={!mobile || flyby.live}
+          focus={position}
+          onHover={setHovered}
+          onTap={detonate}
+        />
         {/* event horizon: the one thing in the scene that emits nothing */}
         <mesh>
           <sphereGeometry args={[1, 32, 32]} />
@@ -1045,15 +1151,18 @@ const PULSE_RINGS = 3;
 // A hollow open cone, lit at the silhouette. Seen edge-on the walls pile up and
 // the shaft reads as volume, which a flat triangle of colour never does.
 const BEAM_VERT = /* glsl */ `
+  uniform vec2 uFog;
   varying vec2 vBeam;
   varying vec3 vNormal;
   varying vec3 vView;
+  varying float vFog;
 
   void main() {
     vec4 mv = modelViewMatrix * vec4(position, 1.0);
     vBeam = uv;
     vNormal = normalize(normalMatrix * normal);
     vView = normalize(-mv.xyz);
+    vFog = 1.0 - clamp((-mv.z - uFog.x) / (uFog.y - uFog.x), 0.0, 1.0);
     gl_Position = projectionMatrix * mv;
   }
 `;
@@ -1064,12 +1173,13 @@ const BEAM_FRAG = /* glsl */ `
   varying vec2 vBeam;
   varying vec3 vNormal;
   varying vec3 vView;
+  varying float vFog;
 
   void main() {
     // uv.y is 1 at the apex, where the beam leaves the star, and 0 at the far end
     float along = pow(vBeam.y, 1.3);
     float grazing = 1.0 - abs(dot(vNormal, vView));
-    float a = along * grazing * uIntensity;
+    float a = along * grazing * uIntensity * vFog;
     gl_FragColor = vec4(uColor * a * 1.5, a);
   }
 `;
@@ -1090,6 +1200,7 @@ const Pulsar = ({ position, scale = 1, mobile }: CelestialProps) => {
   // -1 = idle, otherwise the progress of the click's shockwave
   const shock = useRef(-1);
   const [hovered, setHovered] = useState(false);
+  const flyby = useFlyby(position[2], mobile);
   useCursor(hovered);
 
   // apex at the origin so the beam narrows to a point on the star, base out along -Y
@@ -1100,12 +1211,20 @@ const Pulsar = ({ position, scale = 1, mobile }: CelestialProps) => {
   }, []);
 
   const beamUniforms = useMemo(
-    () => ({ uColor: { value: new THREE.Color('#8ff0ff') }, uIntensity: { value: 1 } }),
-    [],
+    () => ({
+      uColor: { value: new THREE.Color('#8ff0ff') },
+      uIntensity: { value: 1 },
+      uFog: { value: fogRange(mobile) },
+    }),
+    [mobile],
   );
   const coronaUniforms = useMemo(
-    () => ({ uColor: { value: new THREE.Color('#c8f6ff') }, uIntensity: { value: 1.2 } }),
-    [],
+    () => ({
+      uColor: { value: new THREE.Color('#c8f6ff') },
+      uIntensity: { value: 1.2 },
+      uFog: { value: fogRange(mobile) },
+    }),
+    [mobile],
   );
 
   useFrame(({ clock }, delta) => {
@@ -1154,29 +1273,19 @@ const Pulsar = ({ position, scale = 1, mobile }: CelestialProps) => {
     shock.current = 0;
     flash.current = 1;
     spinBoost.current += 9;
+    answerTap('pulsar', position);
   };
 
   return (
-    <group ref={root} position={position} scale={scale}>
+    <group ref={root} position={position} scale={scale} visible={flyby.shown}>
       {/* invisible hitbox: keeps the hover alive while the camera leans in */}
-      <mesh
-        onPointerOver={(e) => {
-          e.stopPropagation();
-          setHovered(true);
-          if (!isTouchDevice()) focusState.target = new THREE.Vector3(...position);
-        }}
-        onPointerOut={() => {
-          setHovered(false);
-          focusState.target = null;
-        }}
-        onClick={(e) => {
-          e.stopPropagation();
-          detonate();
-        }}
-      >
-        <sphereGeometry args={[hitbox(2.6, 1.8, mobile), 16, 16]} />
-        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
-      </mesh>
+      <AstreHitbox
+        radius={2.6}
+        live={!mobile || flyby.live}
+        focus={position}
+        onHover={setHovered}
+        onTap={detonate}
+      />
       {/* the neutron star: small and searing */}
       <mesh ref={core}>
         <sphereGeometry args={[0.34, 32, 32]} />
@@ -1770,11 +1879,12 @@ export const PortfolioScene = () => {
       onPointerMissed={launchComet}
     >
       <CaptureCamera cameraRef={cameraRef} />
-      <fog attach="fog" args={['#050510', FOG_NEAR, FOG_FAR]} />
+      <fog attach="fog" args={['#050510', FOG_NEAR, portrait ? HERO_FOG_FAR : FOG_FAR]} />
       <ambientLight intensity={0.4} />
       <pointLight position={[0, 6, 0]} intensity={30} color={NEON.violet} />
 
       <CameraRig />
+      {portrait && <FogDrive />}
 
       {/* the wireframe clutter is desktop-only: on a phone it crowds a frame that is
           already carrying an astre, the section title and a panel of body text */}
@@ -1793,20 +1903,20 @@ export const PortfolioScene = () => {
           the middle of the corridor, since a phone frame is a third as wide and would
           otherwise never catch them. Depths are shared, so the pacing is identical. */}
       <Planet
-        position={portrait ? [1.8, 1.8, -20] : [5.5, 2, -20]}
+        position={portrait ? [1.8, 1.8, ASTRE_DEPTH.planet] : [5.5, 2, ASTRE_DEPTH.planet]}
         scale={portrait ? 0.85 : 1}
         mobile={portrait}
       />
       {/* portrait y/x put the camera track inside the accretion disc, so scrolling
           past means passing through it — the same close pass the planet's rings give */}
       <BlackHole
-        position={portrait ? [-1.7, 2.6, -35] : [-8, 4, -35]}
+        position={portrait ? [-1.7, 2.6, ASTRE_DEPTH.blackHole] : [-8, 4, ASTRE_DEPTH.blackHole]}
         scale={portrait ? 0.85 : 1}
         mobile={portrait}
       />
       {/* likewise the remnant shell: the track runs through the ejecta */}
       <Pulsar
-        position={portrait ? [1.6, 2.3, -43] : [12, 3.5, -48]}
+        position={portrait ? [1.6, 2.3, ASTRE_DEPTH.pulsar] : [12, 3.5, -48]}
         // still smaller than its siblings on mobile: it is the only astre that is a
         // light source, and close up a full-size one hazes the frame through the
         // bloom pass, taking the body text's contrast with it
@@ -1814,8 +1924,8 @@ export const PortfolioScene = () => {
         mobile={portrait}
       />
       {/* portrait: pushed back so the finale is a destination rather than the
-          supernova's next-door neighbour */}
-      <Galaxy position={portrait ? [0, 6, -72] : [0, 6, -66]} count={portrait ? 2200 : 4000} />
+          pulsar's next-door neighbour — but not so far that the fog eats it */}
+      <Galaxy position={portrait ? [0, 6, -69] : [0, 6, -66]} count={portrait ? 2200 : 4000} />
       {CONTACT_LOGOS.map((logo) => (
         <Constellation
           key={logo.label}
