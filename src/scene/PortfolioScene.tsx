@@ -1030,190 +1030,134 @@ const BlackHole = ({ position, scale = 1, mobile }: CelestialProps) => {
   );
 };
 
-// ── Supernova ──────────────────────────────────────────────────────────────
-// Companion of "Projets". The wireframe icosahedron became a remnant shell of
-// filaments — wide and hollow, so the mobile flyby goes straight through it.
-// Click: the shell surges outward and a blast wave races past it.
+// ── Pulsar ─────────────────────────────────────────────────────────────────
+// Companion of "Projets". Deliberately made of light *shapes* rather than grains:
+// the planet's ring and the black hole's disc already share one particle shader
+// between them, and a third grain cloud read as more of the same. This one is
+// cones and rings, and it is the only astre in the scene with a rhythm — the
+// others turn, this one beats.
 
-const SHELL_INNER = 1.55;
-const SHELL_OUTER = 3.9;
+const BEAM_LENGTH = 7;
+const BEAM_RADIUS = 1.3;
+const MAGNETIC_TILT = 0.55; // offset from the spin axis, which is what makes it sweep
+const PULSE_RINGS = 3;
 
-const SHELL_VERT = /* glsl */ `
-  attribute vec3 aDir;
-  attribute float aRadius;
-  attribute float aSize;
-  attribute float aPhase;
-  attribute vec3 aColor;
-  uniform float uTime;
-  uniform float uBlast;  // -1 idle, else 0..1
-  uniform float uScale;
-  uniform vec2 uFog;     // near, far — matched to the scene's own fog
-  varying vec3 vColor;
-  varying float vGlow;
-  varying float vFog;
+// A hollow open cone, lit at the silhouette. Seen edge-on the walls pile up and
+// the shaft reads as volume, which a flat triangle of colour never does.
+const BEAM_VERT = /* glsl */ `
+  varying vec2 vBeam;
+  varying vec3 vNormal;
+  varying vec3 vView;
 
   void main() {
-    float firing = step(0.0, uBlast);
-    float blast = max(0.0, uBlast);
-    // breathing keeps the remnant from ever looking frozen
-    float breathe = 1.0 + sin(uTime * 0.55 + aPhase) * 0.05;
-    // a surge that recoils: the shell has to be back at rest for the next click
-    float surge = sin(blast * 3.14159) * 2.9 * firing;
-    vec3 p = aDir * (aRadius * breathe + surge);
-
-    vColor = aColor;
-    vGlow = firing * pow(1.0 - blast, 2.0);
-
-    vec4 mv = modelViewMatrix * vec4(p, 1.0);
-    vFog = 1.0 - clamp((-mv.z - uFog.x) / (uFog.y - uFog.x), 0.0, 1.0);
-    gl_PointSize = min(aSize * (1.0 + vGlow * 2.2) * uScale / max(0.001, -mv.z), 11.0);
+    vec4 mv = modelViewMatrix * vec4(position, 1.0);
+    vBeam = uv;
+    vNormal = normalize(normalMatrix * normal);
+    vView = normalize(-mv.xyz);
     gl_Position = projectionMatrix * mv;
   }
 `;
 
-const SHELL_FRAG = /* glsl */ `
-  varying vec3 vColor;
-  varying float vGlow;
-  varying float vFog;
+const BEAM_FRAG = /* glsl */ `
+  uniform vec3 uColor;
+  uniform float uIntensity;
+  varying vec2 vBeam;
+  varying vec3 vNormal;
+  varying vec3 vView;
 
   void main() {
-    if (vFog < 0.01) discard;
-    vec2 uv = gl_PointCoord - 0.5;
-    float d2 = dot(uv, uv);
-    if (d2 > 0.25) discard;
-    gl_FragColor = vec4(vColor * (1.0 + vGlow * 2.4), smoothstep(0.25, 0.02, d2) * vFog);
+    // uv.y is 1 at the apex, where the beam leaves the star, and 0 at the far end
+    float along = pow(vBeam.y, 1.3);
+    float grazing = 1.0 - abs(dot(vNormal, vView));
+    float a = along * grazing * uIntensity;
+    gl_FragColor = vec4(uColor * a * 1.5, a);
   }
 `;
 
-// Ejecta are clumpy, not evenly scattered: each grain is pulled toward one of a
-// handful of filament axes, which is what gives a real remnant its wisps.
-const FILAMENTS = 14;
-
-const shellGeometry = (count: number) => {
-  const positions = new Float32Array(count * 3);
-  const dirs = new Float32Array(count * 3);
-  const radii = new Float32Array(count);
-  const sizes = new Float32Array(count);
-  const phases = new Float32Array(count);
-  const colors = new Float32Array(count * 3);
-  const hot = new THREE.Color('#fff2fa');
-  const mid = new THREE.Color(NEON.pink);
-  const cool = new THREE.Color(NEON.cyan);
-  const shade = new THREE.Color();
-  const dir = new THREE.Vector3();
-  const axis = new THREE.Vector3();
-
-  for (let i = 0; i < count; i++) {
-    const theta = rand01(i, 30) * Math.PI * 2;
-    const phi = Math.acos(rand01(i, 31) * 2 - 1);
-    dir.set(Math.sin(phi) * Math.cos(theta), Math.cos(phi), Math.sin(phi) * Math.sin(theta));
-
-    const f = Math.floor(rand01(i, 32) * FILAMENTS);
-    const ftheta = rand01(f, 33) * Math.PI * 2;
-    const fphi = Math.acos(rand01(f, 34) * 2 - 1);
-    axis.set(Math.sin(fphi) * Math.cos(ftheta), Math.cos(fphi), Math.sin(fphi) * Math.sin(ftheta));
-    dir.lerp(axis, 0.55 * rand01(i, 35)).normalize();
-
-    dirs[i * 3] = dir.x;
-    dirs[i * 3 + 1] = dir.y;
-    dirs[i * 3 + 2] = dir.z;
-
-    const k = rand01(i, 36) ** 0.7;
-    const radius = SHELL_INNER + k * (SHELL_OUTER - SHELL_INNER);
-    radii[i] = radius;
-    positions[i * 3] = dir.x * radius;
-    positions[i * 3 + 1] = dir.y * radius;
-    positions[i * 3 + 2] = dir.z * radius;
-
-    shade.copy(hot).lerp(mid, Math.min(1, k * 2));
-    if (k > 0.5) shade.copy(mid).lerp(cool, (k - 0.5) * 2);
-    colors[i * 3] = shade.r;
-    colors[i * 3 + 1] = shade.g;
-    colors[i * 3 + 2] = shade.b;
-
-    sizes[i] = 0.035 + rand01(i, 37) * 0.06;
-    phases[i] = rand01(i, 38) * Math.PI * 2;
-  }
-
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  geo.setAttribute('aDir', new THREE.BufferAttribute(dirs, 3));
-  geo.setAttribute('aRadius', new THREE.BufferAttribute(radii, 1));
-  geo.setAttribute('aSize', new THREE.BufferAttribute(sizes, 1));
-  geo.setAttribute('aPhase', new THREE.BufferAttribute(phases, 1));
-  geo.setAttribute('aColor', new THREE.BufferAttribute(colors, 3));
-  return geo;
-};
-
-const Supernova = ({ position, scale = 1, mobile }: CelestialProps) => {
+const Pulsar = ({ position, scale = 1, mobile }: CelestialProps) => {
+  const root = useRef<THREE.Group>(null);
+  const spin = useRef<THREE.Group>(null);
   const core = useRef<THREE.Mesh>(null);
   const coreMaterial = useRef<THREE.MeshBasicMaterial>(null);
   const corona = useRef<THREE.ShaderMaterial>(null);
-  const shell = useRef<THREE.Group>(null);
-  const shellMaterial = useRef<THREE.ShaderMaterial>(null);
-  const wave = useRef<THREE.Mesh>(null);
-  const waveMaterial = useRef<THREE.ShaderMaterial>(null);
-  // -1 = idle, otherwise progress of the detonation
-  const blast = useRef(-1);
+  const beamMaterial = useRef<THREE.ShaderMaterial>(null);
+  const rings = useRef<(THREE.Mesh | null)[]>([]);
+  const ringMaterials = useRef<(THREE.MeshBasicMaterial | null)[]>([]);
+  const burst = useRef<THREE.Mesh>(null);
+  const burstMaterial = useRef<THREE.MeshBasicMaterial>(null);
+  const spinBoost = useRef(0);
   const flash = useRef(0);
+  // -1 = idle, otherwise the progress of the click's shockwave
+  const shock = useRef(-1);
   const [hovered, setHovered] = useState(false);
   useCursor(hovered);
 
-  const ejecta = useMemo(() => shellGeometry(mobile ? 2000 : 2800), [mobile]);
-  const shellUniforms = useMemo(
-    () => ({
-      uTime: { value: 0 },
-      uBlast: { value: -1 },
-      uScale: { value: 600 },
-      uFog: { value: fogRange(mobile) },
-    }),
-    [mobile],
+  // apex at the origin so the beam narrows to a point on the star, base out along -Y
+  const beamGeometry = useMemo(() => {
+    const geo = new THREE.ConeGeometry(BEAM_RADIUS, BEAM_LENGTH, 28, 1, true);
+    geo.translate(0, -BEAM_LENGTH / 2, 0);
+    return geo;
+  }, []);
+
+  const beamUniforms = useMemo(
+    () => ({ uColor: { value: new THREE.Color('#8ff0ff') }, uIntensity: { value: 1 } }),
+    [],
   );
   const coronaUniforms = useMemo(
-    () => ({ uColor: { value: new THREE.Color('#ffd6ec') }, uIntensity: { value: 1 } }),
-    [],
-  );
-  const waveUniforms = useMemo(
-    () => ({ uColor: { value: new THREE.Color('#a5f3fc') }, uIntensity: { value: 0 } }),
+    () => ({ uColor: { value: new THREE.Color('#c8f6ff') }, uIntensity: { value: 1.2 } }),
     [],
   );
 
-  useFrame(({ camera, clock, size, viewport }, delta) => {
+  useFrame(({ clock }, delta) => {
     const time = clock.elapsedTime;
-    flash.current = THREE.MathUtils.damp(flash.current, 0, 2.5, delta);
-    if (shell.current) shell.current.rotation.y += delta * 0.05;
+    spinBoost.current = THREE.MathUtils.damp(spinBoost.current, 0, 1.3, delta);
+    flash.current = THREE.MathUtils.damp(flash.current, 0, 2.6, delta);
+    if (spin.current) spin.current.rotation.y += delta * (0.9 + spinBoost.current);
 
-    if (blast.current >= 0) {
-      blast.current += delta / 1.25;
-      if (blast.current > 1.0) blast.current = -1;
+    // the beat: a sharp crest once per turn rather than a gentle sine, so it
+    // reads as a pulse and not as breathing
+    const beat = Math.abs(Math.sin(time * 1.6)) ** 6;
+
+    if (core.current) core.current.scale.setScalar(1 + beat * 0.25 + flash.current * 0.8);
+    if (coreMaterial.current) coreMaterial.current.opacity = Math.min(1, 0.85 + flash.current);
+    if (corona.current) {
+      corona.current.uniforms.uIntensity.value = 1.2 + beat * 1.4 + flash.current * 4;
     }
-    const t = blast.current;
-
-    if (core.current) core.current.scale.setScalar(1 + Math.sin(time * 2.5) * 0.14 + flash.current);
-    if (coreMaterial.current) coreMaterial.current.opacity = Math.min(1, 0.9 + flash.current);
-    if (corona.current) corona.current.uniforms.uIntensity.value = 1.1 + flash.current * 4;
-
-    if (shellMaterial.current) {
-      shellMaterial.current.uniforms.uTime.value = time;
-      shellMaterial.current.uniforms.uBlast.value = t;
-      shellMaterial.current.uniforms.uScale.value = pixelsPerUnit(size.height, viewport.dpr, camera);
+    if (beamMaterial.current) {
+      beamMaterial.current.uniforms.uIntensity.value = 0.55 + beat * 0.7 + flash.current * 3;
     }
-    if (wave.current && waveMaterial.current) {
-      wave.current.visible = t >= 0;
+
+    // radio pulses leaving the star, staggered so one is always on its way out
+    rings.current.forEach((ring, i) => {
+      const material = ringMaterials.current[i];
+      if (!ring || !material) return;
+      const t = (time * 0.38 + i / PULSE_RINGS) % 1;
+      ring.scale.setScalar(0.6 + t * 7);
+      material.opacity = (1 - t) ** 2 * 0.55;
+    });
+
+    if (shock.current >= 0) {
+      shock.current += delta / 1.1;
+      if (shock.current > 1) shock.current = -1;
+    }
+    if (burst.current && burstMaterial.current) {
+      const t = shock.current;
+      burst.current.visible = t >= 0;
       if (t >= 0) {
-        wave.current.scale.setScalar(1.1 + t * 2.9);
-        waveMaterial.current.uniforms.uIntensity.value = Math.max(0, 1 - t) ** 3 * 4;
+        burst.current.scale.setScalar(0.8 + t * 13);
+        burstMaterial.current.opacity = Math.max(0, 1 - t) ** 1.8;
       }
     }
   });
 
   const detonate = () => {
-    blast.current = 0;
+    shock.current = 0;
     flash.current = 1;
+    spinBoost.current += 9;
   };
 
   return (
-    <group position={position} scale={scale}>
+    <group ref={root} position={position} scale={scale}>
       {/* invisible hitbox: keeps the hover alive while the camera leans in */}
       <mesh
         onPointerOver={(e) => {
@@ -1233,20 +1177,19 @@ const Supernova = ({ position, scale = 1, mobile }: CelestialProps) => {
         <sphereGeometry args={[hitbox(2.6, 1.8, mobile), 16, 16]} />
         <meshBasicMaterial transparent opacity={0} depthWrite={false} />
       </mesh>
-      {/* the star itself */}
+      {/* the neutron star: small and searing */}
       <mesh ref={core}>
-        <sphereGeometry args={[0.52, 32, 32]} />
+        <sphereGeometry args={[0.34, 32, 32]} />
         <meshBasicMaterial
           ref={coreMaterial}
           color="#ffffff"
           transparent
-          opacity={0.9}
+          opacity={0.85}
           toneMapped={false}
         />
       </mesh>
-      {/* corona */}
-      <mesh scale={1.9}>
-        <sphereGeometry args={[0.52, 32, 32]} />
+      <mesh scale={2.2}>
+        <sphereGeometry args={[0.34, 32, 32]} />
         <shaderMaterial
           ref={corona}
           uniforms={coronaUniforms}
@@ -1258,37 +1201,77 @@ const Supernova = ({ position, scale = 1, mobile }: CelestialProps) => {
           blending={THREE.AdditiveBlending}
         />
       </mesh>
-      {/* blast wave, racing ahead of the ejecta */}
-      <mesh ref={wave} visible={false}>
-        <sphereGeometry args={[1.5, 32, 32]} />
-        <shaderMaterial
-          ref={waveMaterial}
-          uniforms={waveUniforms}
-          vertexShader={GLOW_VERT}
-          fragmentShader={ATMOSPHERE_FRAG}
+      <group ref={spin}>
+        {/* the magnetic axis is offset from the spin axis — that offset is the
+            whole trick, it is what sweeps the beams around like a lighthouse */}
+        <group rotation={[0, 0, MAGNETIC_TILT]}>
+          <mesh geometry={beamGeometry}>
+            <shaderMaterial
+              ref={beamMaterial}
+              uniforms={beamUniforms}
+              vertexShader={BEAM_VERT}
+              fragmentShader={BEAM_FRAG}
+              transparent
+              depthWrite={false}
+              side={THREE.DoubleSide}
+              blending={THREE.AdditiveBlending}
+            />
+          </mesh>
+          <mesh geometry={beamGeometry} rotation={[Math.PI, 0, 0]}>
+            <shaderMaterial
+              uniforms={beamUniforms}
+              vertexShader={BEAM_VERT}
+              fragmentShader={BEAM_FRAG}
+              transparent
+              depthWrite={false}
+              side={THREE.DoubleSide}
+              blending={THREE.AdditiveBlending}
+            />
+          </mesh>
+        </group>
+      </group>
+      {/* equatorial pulses, so they read as rings in perspective rather than as
+          flat circles pasted on the screen */}
+      {Array.from({ length: PULSE_RINGS }, (_, i) => (
+        <mesh
+          key={i}
+          ref={(mesh) => {
+            rings.current[i] = mesh;
+          }}
+          rotation={[-Math.PI / 2, 0, 0]}
+        >
+          <ringGeometry args={[0.94, 1, 96]} />
+          <meshBasicMaterial
+            ref={(material) => {
+              ringMaterials.current[i] = material;
+            }}
+            color="#67e8f9"
+            transparent
+            opacity={0}
+            side={THREE.DoubleSide}
+            depthWrite={false}
+            toneMapped={false}
+            blending={THREE.AdditiveBlending}
+          />
+        </mesh>
+      ))}
+      {/* click: one hard pulse that outruns the rest */}
+      <mesh ref={burst} visible={false} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.88, 1, 128]} />
+        <meshBasicMaterial
+          ref={burstMaterial}
+          color="#ffffff"
           transparent
+          opacity={0}
+          side={THREE.DoubleSide}
           depthWrite={false}
-          side={THREE.BackSide}
+          toneMapped={false}
           blending={THREE.AdditiveBlending}
         />
       </mesh>
-      {/* remnant shell */}
-      <group ref={shell}>
-        <points geometry={ejecta}>
-          <shaderMaterial
-            ref={shellMaterial}
-            uniforms={shellUniforms}
-            vertexShader={SHELL_VERT}
-            fragmentShader={SHELL_FRAG}
-            transparent
-            depthWrite={false}
-            blending={THREE.AdditiveBlending}
-          />
-        </points>
-      </group>
-      {/* on a phone the camera passes much closer to this than the framing suggests,
-          and the full desktop intensity washes the screen pink through the bloom pass */}
-      <pointLight intensity={mobile ? 10 : 22} color="#f472b6" distance={14} />
+      {/* on a phone the camera passes much closer than the framing suggests, and
+          the full desktop intensity washes the frame through the bloom pass */}
+      <pointLight intensity={mobile ? 8 : 18} color="#67e8f9" distance={14} />
     </group>
   );
 };
@@ -1822,7 +1805,7 @@ export const PortfolioScene = () => {
         mobile={portrait}
       />
       {/* likewise the remnant shell: the track runs through the ejecta */}
-      <Supernova
+      <Pulsar
         position={portrait ? [1.6, 2.3, -43] : [12, 3.5, -48]}
         // still smaller than its siblings on mobile: it is the only astre that is a
         // light source, and close up a full-size one hazes the frame through the
