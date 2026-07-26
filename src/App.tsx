@@ -1,4 +1,14 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  Fragment,
+  cloneElement,
+  isValidElement,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactElement,
+  type ReactNode,
+} from 'react';
 import { PortfolioScene } from './scene/PortfolioScene';
 import { CursorGlow } from './CursorGlow';
 import { MiniMap } from './MiniMap';
@@ -14,8 +24,23 @@ type SectionProps = {
   // has an unobstructed showcase behind it. The body then scrolls in below, on its
   // own backdrop, while the astre slides away.
   showcase?: boolean;
+  // The astre standing behind this section: its color tints the scrim's light leak,
+  // and `leak` says which side of the frame that light comes from. Hard-coded rather
+  // than projected from the scene each frame — the astres sit at fixed world
+  // positions (PortfolioScene), so the side never changes.
+  accent?: keyof typeof ACCENTS;
+  leak?: keyof typeof LEAK_X;
   children: ReactNode;
 };
+
+// rgb triples, so the CSS can pick its own alpha per layer
+const ACCENTS = {
+  violet: '168 85 247',
+  cyan: '34 211 238',
+  pink: '244 114 182',
+};
+
+const LEAK_X = { left: '12%', center: '50%', right: '88%' };
 
 // Fades a body panel in as it enters the viewport. Falls back to "already
 // revealed" when IntersectionObserver is missing: the text must never depend on
@@ -43,10 +68,58 @@ const useRevealed = () => {
   return { ref, revealed };
 };
 
-const Section = ({ index, title, align = 'left', showcase, children }: SectionProps) => {
+// Wraps every word of a subtree in its own span, numbered in reading order, so the
+// CSS can stagger them. Recursive: the body copy mixes bare strings with elements
+// (links, headings, pills), and a splitter that only handled top-level strings would
+// drop the words on either side of a link out of the sequence.
+const splitWords = (node: ReactNode, counter: { n: number }): ReactNode => {
+  if (typeof node === 'string') {
+    // keeping the whitespace chunks as plain text nodes is what lets the line still
+    // break normally between two inline-block words
+    return node.split(/(\s+)/).map((chunk, i) =>
+      chunk.trim() === '' ? (
+        chunk
+      ) : (
+        <span key={i} className="reveal-word" style={{ '--i': counter.n++ } as CSSProperties}>
+          {chunk}
+        </span>
+      ),
+    );
+  }
+  if (Array.isArray(node)) {
+    return node.map((child, i) => <Fragment key={i}>{splitWords(child, counter)}</Fragment>);
+  }
+  if (isValidElement(node)) {
+    const element = node as ReactElement<{ children?: ReactNode }>;
+    if (element.props.children == null) return node;
+    return cloneElement(element, undefined, splitWords(element.props.children, counter));
+  }
+  return node;
+};
+
+// One reveal unit: its words condense out of the void when it reaches the viewport.
+// Use one per block that should animate on its own — each experience entry gets its
+// own, so the stagger restarts with it instead of running off the end of the section.
+const Reveal = ({ children, className = '' }: { children: ReactNode; className?: string }) => {
+  const { ref, revealed } = useRevealed();
+  return (
+    <div ref={ref} className={`reveal ${revealed ? 'is-in' : ''} ${className}`}>
+      {splitWords(children, { n: 0 })}
+    </div>
+  );
+};
+
+const Section = ({
+  index,
+  title,
+  align = 'left',
+  showcase,
+  accent = 'violet',
+  leak = 'center',
+  children,
+}: SectionProps) => {
   const placement =
     align === 'center' ? 'mx-auto text-center' : align === 'right' ? 'ml-auto' : 'mr-auto';
-  const { ref, revealed } = useRevealed();
 
   return (
     // svh: sized to the small viewport so the collapsing mobile URL bar never shifts the layout
@@ -76,11 +149,11 @@ const Section = ({ index, title, align = 'left', showcase, children }: SectionPr
               />
             </div>
           </div>
+          {/* mobile: the body stays transparent to taps so the astres behind it keep
+              their whole surface — only links opt back in (index.css) */}
           <div
-            ref={ref}
-            className={`holo-text pointer-events-auto ${showcase ? 'section-panel' : ''} ${
-              showcase && !revealed ? 'is-hidden' : ''
-            }`}
+            className={`holo-text md:pointer-events-auto ${showcase ? 'section-panel' : ''}`}
+            style={{ '--accent': ACCENTS[accent], '--leak-x': LEAK_X[leak] } as CSSProperties}
           >
             {children}
           </div>
@@ -187,36 +260,50 @@ export const App = () => {
           <div className="mt-16 animate-bounce text-white/50">{t.hero.scroll}</div>
         </section>
 
-        <Section index="01" title={t.about.title} showcase>
-          <p className="text-lg leading-relaxed text-white/85 md:text-xl">
-            {t.about.before}
-            <ExternalLink
-              href={LINKS.youtube}
-              className="text-neon-cyan underline decoration-neon-cyan/40 underline-offset-4 transition hover:decoration-neon-cyan"
-            >
-              {t.about.youtube}
-            </ExternalLink>
-            {t.about.after}
-          </p>
+        {/* accent/leak follow the astre each section is staged against: the ringed
+            planet sits right of the mobile track, the black hole left, the pulsar
+            right again, and the galaxy dead ahead */}
+        <Section index="01" title={t.about.title} showcase accent="violet" leak="right">
+          <Reveal>
+            <p className="text-lg leading-relaxed text-white/85 md:text-xl">
+              {t.about.before}
+              <ExternalLink
+                href={LINKS.youtube}
+                className="text-neon-cyan underline decoration-neon-cyan/40 underline-offset-4 transition hover:decoration-neon-cyan"
+              >
+                {t.about.youtube}
+              </ExternalLink>
+              {t.about.after}
+            </p>
+          </Reveal>
         </Section>
 
-        <Section index="02" title={t.experience.title} align="right" showcase>
+        <Section
+          index="02"
+          title={t.experience.title}
+          align="right"
+          showcase
+          accent="pink"
+          leak="left"
+        >
           <div className="space-y-8 md:space-y-10">
             {t.experience.entries.map((entry) => (
-              <div key={entry.title}>
+              // one Reveal per entry: each one condenses as it arrives, rather than
+              // the whole résumé firing off the first entry's intersection
+              <Reveal key={entry.title}>
                 <h3 className="text-xl font-bold md:text-2xl">{entry.title}</h3>
                 <p className="mt-1 text-sm tracking-widest text-white/50 uppercase">{entry.period}</p>
                 <TagPills tags={entry.tags} />
                 <p className="mt-4 text-white/75 md:text-lg">{entry.text}</p>
-              </div>
+              </Reveal>
             ))}
           </div>
         </Section>
 
-        <Section index="03" title={t.projects.title} showcase>
+        <Section index="03" title={t.projects.title} showcase accent="cyan" leak="right">
           <div className="space-y-8 md:space-y-10">
             {t.projects.items.map((project) => (
-              <div key={project.title}>
+              <Reveal key={project.title}>
                 <h3 className="text-xl font-bold md:text-2xl">{project.title}</h3>
                 <TagPills tags={project.tags} />
                 <p className="mt-4 text-white/75 md:text-lg">{project.text}</p>
@@ -231,16 +318,18 @@ export const App = () => {
                     </ExternalLink>
                   ))}
                 </div>
-              </div>
+              </Reveal>
             ))}
           </div>
         </Section>
 
-        <Section index="04" title={t.contact.title} align="center">
-          <p className="text-lg text-white/85 md:text-xl">{t.contact.text}</p>
-          <p className="mt-6 animate-pulse text-sm font-bold tracking-[0.3em] text-neon-cyan/80 uppercase">
-            {t.contact.hint}
-          </p>
+        <Section index="04" title={t.contact.title} align="center" accent="violet">
+          <Reveal>
+            <p className="text-lg text-white/85 md:text-xl">{t.contact.text}</p>
+            <p className="mt-6 animate-pulse text-sm font-bold tracking-[0.3em] text-neon-cyan/80 uppercase">
+              {t.contact.hint}
+            </p>
+          </Reveal>
         </Section>
       </main>
     </>
