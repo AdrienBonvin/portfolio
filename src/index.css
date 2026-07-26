@@ -82,57 +82,21 @@ main button {
    utility class. */
 @media (max-width: 767px) {
   .section-panel {
-    position: relative;
-    padding: 1.5rem 1.3rem 1.6rem;
-    border: 1px solid rgba(168, 85, 247, 0.16);
-    border-radius: 22px;
-    /* a lit corner and a fall into the void, rather than one flat wash of grey */
-    background:
-      radial-gradient(130% 90% at 0% 0%, rgba(34, 211, 238, 0.12), transparent 58%),
-      linear-gradient(155deg, rgba(41, 24, 79, 0.74) 0%, rgba(6, 6, 20, 0.88) 58%);
-    box-shadow:
-      0 24px 60px -28px rgba(0, 0, 0, 0.95),
-      0 0 46px -18px rgba(168, 85, 247, 0.5),
-      inset 0 1px 0 rgba(255, 255, 255, 0.07);
+    padding: 1.15rem 1.15rem 1.35rem;
+    border: 1px solid rgba(168, 85, 247, 0.22);
+    border-radius: 18px;
+    background: rgba(5, 5, 16, 0.72);
+    box-shadow: 0 0 40px -14px rgba(168, 85, 247, 0.55);
     transition:
       opacity 0.5s ease,
       transform 0.5s ease;
-  }
-
-  /* neon filament along the top edge — the one bright line that stops the panel
-     reading as a plain dark box */
-  .section-panel::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 1.2rem;
-    right: 1.2rem;
-    height: 1px;
-    background: linear-gradient(
-      90deg,
-      transparent,
-      rgba(34, 211, 238, 0.75),
-      rgba(168, 85, 247, 0.6),
-      transparent
-    );
   }
 
   /* body copy is a notch smaller here than on desktop, so it wants a looser
      rhythm. Done in CSS rather than a leading-* utility: those have no breakpoint
      scoping in the markup and would move desktop line-heights with them. */
   .section-panel p {
-    line-height: 1.72;
-  }
-
-  .section-panel h3 {
-    letter-spacing: -0.012em;
-  }
-
-  /* the date line earns a tint here: at this size plain white/50 just reads as
-     washed-out body copy */
-  .section-panel .section-meta {
-    color: rgba(103, 232, 249, 0.62);
-    font-size: 0.8rem;
+    line-height: 1.7;
   }
 
   /* only ever set by JS once the panel is confirmed off screen, so a missing

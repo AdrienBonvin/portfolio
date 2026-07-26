@@ -46,9 +46,6 @@ const useRevealed = () => {
 const Section = ({ index, title, align = 'left', showcase, children }: SectionProps) => {
   const placement =
     align === 'center' ? 'mx-auto text-center' : align === 'right' ? 'ml-auto' : 'mr-auto';
-  // ml-auto does nothing on a phone: the column is already narrower than max-w-2xl,
-  // so a right-aligned section has to right-align its own type below md
-  const rightOnMobile = align === 'right';
   const { ref, revealed } = useRevealed();
 
   return (
@@ -67,23 +64,15 @@ const Section = ({ index, title, align = 'left', showcase, children }: SectionPr
             <div className="relative">
               <span
                 aria-hidden
-                className={`ghost-number absolute -top-20 text-[9rem] font-bold select-none md:-top-28 md:-left-2 md:text-[13rem] ${
-                  rightOnMobile ? '-right-2 md:right-auto' : '-left-2'
-                }`}
+                className="ghost-number absolute -top-20 -left-2 text-[9rem] font-bold select-none md:-top-28 md:text-[13rem]"
               >
                 {index}
               </span>
-              <h2
-                className={`relative mb-4 bg-gradient-to-r from-neon-violet via-white to-neon-cyan bg-clip-text text-5xl font-bold text-transparent drop-shadow-[0_0_30px_rgba(168,85,247,0.5)] md:text-7xl ${
-                  rightOnMobile ? 'text-right md:text-left' : ''
-                }`}
-              >
+              <h2 className="relative mb-4 bg-gradient-to-r from-neon-violet via-white to-neon-cyan bg-clip-text text-5xl font-bold text-transparent drop-shadow-[0_0_30px_rgba(168,85,247,0.5)] md:text-7xl">
                 {title}
               </h2>
               <div
-                className={`mb-10 h-px w-44 bg-gradient-to-r from-neon-cyan to-transparent shadow-[0_0_12px_#22d3ee] ${align === 'center' ? 'mx-auto' : ''} ${
-                  rightOnMobile ? 'ml-auto bg-gradient-to-l md:ml-0 md:bg-gradient-to-r' : ''
-                }`}
+                className={`mb-10 h-px w-44 bg-gradient-to-r from-neon-cyan to-transparent shadow-[0_0_12px_#22d3ee] ${align === 'center' ? 'mx-auto' : ''}`}
               />
             </div>
           </div>
@@ -216,9 +205,7 @@ export const App = () => {
             {t.experience.entries.map((entry) => (
               <div key={entry.title}>
                 <h3 className="text-xl font-bold md:text-2xl">{entry.title}</h3>
-                <p className="section-meta mt-1 text-sm tracking-widest text-white/50 uppercase">
-                  {entry.period}
-                </p>
+                <p className="mt-1 text-sm tracking-widest text-white/50 uppercase">{entry.period}</p>
                 <TagPills tags={entry.tags} />
                 <p className="mt-4 text-white/75 md:text-lg">{entry.text}</p>
               </div>

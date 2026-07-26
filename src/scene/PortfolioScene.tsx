@@ -369,7 +369,6 @@ const RING_VERT = /* glsl */ `
   uniform float uPush;   // radial displacement at the crest; negative drags grains in
   uniform float uLift;   // out-of-plane displacement at the crest
   uniform float uBeam;   // 0 = even, 1 = one limb brightened, the way a relativistic disc reads
-  uniform float uFade;   // global dimmer, so the hero can hold the band back
   varying vec3 vColor;
   varying float vGlow;
 
@@ -390,7 +389,7 @@ const RING_VERT = /* glsl */ `
 
     // Doppler beaming: the limb turning toward the camera outshines the other
     float side = p.x / max(radius, 0.001);
-    vColor = aColor * mix(1.0, 0.4 + 0.85 * (side * 0.5 + 0.5), uBeam) * uFade;
+    vColor = aColor * mix(1.0, 0.4 + 0.85 * (side * 0.5 + 0.5), uBeam);
     vGlow = wave;
 
     vec4 mv = modelViewMatrix * vec4(p, 1.0);
@@ -535,19 +534,6 @@ const orbitGeometry = ({
   return geo;
 };
 
-// Mobile only. The hero has to stay legible, and the grain systems are raw
-// ShaderMaterials, which the scene fog never reaches — so a planet 28 units out and
-// an accretion disc 43 units out both sit at full brightness behind the title.
-// They fade in with the first flick of scroll instead.
-const heroVeil = (mobile?: boolean) =>
-  mobile ? THREE.MathUtils.smoothstep(scrollState.progress, 0.03, 0.19) : 1;
-
-// The opaque parts — a planet core, an event horizon — cannot be faded without
-// making their materials transparent, and that drops them into the sorted pass
-// where additive grains behind them draw straight through. So they are not faded
-// at all: the whole astre is simply absent until the veil is well underway.
-const HERO_GATE = 0.22;
-
 // Shared by every band: the point size has to track the drawing buffer and the
 // warp effect's field of view, since gl_PointSize is in device pixels.
 const pixelsPerUnit = (height: number, dpr: number, camera: THREE.Camera) => {
@@ -556,7 +542,6 @@ const pixelsPerUnit = (height: number, dpr: number, camera: THREE.Camera) => {
 };
 
 const Planet = ({ position, scale = 1, mobile }: CelestialProps) => {
-  const root = useRef<THREE.Group>(null);
   const planet = useRef<THREE.Group>(null);
   const rings = useRef<THREE.Group>(null);
   const moonOrbit = useRef<THREE.Group>(null);
@@ -602,7 +587,6 @@ const Planet = ({ position, scale = 1, mobile }: CelestialProps) => {
       uPush: { value: 0.26 },
       uLift: { value: 0.55 },
       uBeam: { value: 0 },
-      uFade: { value: 1 },
     }),
     [],
   );
@@ -629,19 +613,14 @@ const Planet = ({ position, scale = 1, mobile }: CelestialProps) => {
       if (shock.current > 1.0) shock.current = -1;
     }
 
-    const veil = heroVeil(mobile);
-    if (root.current) root.current.visible = veil > HERO_GATE;
     if (ringMaterial.current) {
       ringMaterial.current.uniforms.uTime.value = ringClock.current;
       ringMaterial.current.uniforms.uShock.value = shock.current;
       ringMaterial.current.uniforms.uScale.value = pixelsPerUnit(size.height, viewport.dpr, camera);
-      ringMaterial.current.uniforms.uFade.value = veil;
     }
-    if (atmosphere.current) {
-      atmosphere.current.uniforms.uIntensity.value = (1 + flash.current * 3.5) * veil;
-    }
-    if (bands.current) bands.current.uniforms.uIntensity.value = (1 + flash.current * 2.5) * veil;
-    if (core.current) core.current.emissiveIntensity = (0.45 + flash.current * 2.2) * veil;
+    if (atmosphere.current) atmosphere.current.uniforms.uIntensity.value = 1 + flash.current * 3.5;
+    if (bands.current) bands.current.uniforms.uIntensity.value = 1 + flash.current * 2.5;
+    if (core.current) core.current.emissiveIntensity = 0.45 + flash.current * 2.2;
 
     const t = shock.current;
     if (blast.current && blastMaterial.current) {
@@ -668,7 +647,7 @@ const Planet = ({ position, scale = 1, mobile }: CelestialProps) => {
   };
 
   return (
-    <group ref={root} position={position} scale={scale}>
+    <group position={position} scale={scale}>
       <Float speed={0.8} rotationIntensity={0.1} floatIntensity={0.5}>
       <group ref={planet} rotation={[0.35, 0, -0.15]}>
         {/* invisible hitbox: keeps the hover alive while the camera leans in */}
@@ -858,7 +837,6 @@ const jetGeometry = (count: number) => {
 };
 
 const BlackHole = ({ position, scale = 1, mobile }: CelestialProps) => {
-  const root = useRef<THREE.Group>(null);
   const discMaterial = useRef<THREE.ShaderMaterial>(null);
   const jets = useRef<THREE.Points>(null);
   const jetMaterial = useRef<THREE.ShaderMaterial>(null);
@@ -903,7 +881,6 @@ const BlackHole = ({ position, scale = 1, mobile }: CelestialProps) => {
       uPush: { value: -0.3 },
       uLift: { value: 0.12 },
       uBeam: { value: 1 },
-      uFade: { value: 1 },
     }),
     [],
   );
@@ -925,13 +902,10 @@ const BlackHole = ({ position, scale = 1, mobile }: CelestialProps) => {
     const t = collapse.current;
     const pixels = pixelsPerUnit(size.height, viewport.dpr, camera);
 
-    const veil = heroVeil(mobile);
-    if (root.current) root.current.visible = veil > HERO_GATE;
     if (discMaterial.current) {
       discMaterial.current.uniforms.uTime.value = discClock.current;
       discMaterial.current.uniforms.uShock.value = t;
       discMaterial.current.uniforms.uScale.value = pixels;
-      discMaterial.current.uniforms.uFade.value = veil;
     }
     if (jets.current && jetMaterial.current) {
       jets.current.visible = t >= 0;
@@ -941,12 +915,11 @@ const BlackHole = ({ position, scale = 1, mobile }: CelestialProps) => {
       }
     }
     if (photonRing.current && photonMaterial.current) {
-      photonRing.current.lookAt(camera.position);
       const flareScale = 1 + flare.current * 0.35;
       photonRing.current.scale.set(flareScale, flareScale, 1);
-      photonMaterial.current.opacity = Math.min(1, 0.85 + flare.current) * veil;
+      photonMaterial.current.opacity = Math.min(1, 0.85 + flare.current);
     }
-    if (lens.current) lens.current.uniforms.uIntensity.value = (0.7 + flare.current * 3) * veil;
+    if (lens.current) lens.current.uniforms.uIntensity.value = 0.7 + flare.current * 3;
   });
 
   const detonate = () => {
@@ -956,7 +929,7 @@ const BlackHole = ({ position, scale = 1, mobile }: CelestialProps) => {
   };
 
   return (
-    <group ref={root} position={position} scale={scale}>
+    <group position={position} scale={scale}>
       <group rotation={[0.9, 0.15, 0]}>
         {/* invisible hitbox: keeps the hover alive while the camera leans in */}
         <mesh
@@ -977,9 +950,7 @@ const BlackHole = ({ position, scale = 1, mobile }: CelestialProps) => {
           <sphereGeometry args={[hitbox(3.2, 2.2, mobile), 16, 16]} />
           <meshBasicMaterial transparent opacity={0} depthWrite={false} />
         </mesh>
-        {/* event horizon: the one thing in the scene that emits nothing. Opaque,
-            not transparent — a transparent material joins the sorted pass, where
-            additive grains behind it can end up drawn over it */}
+        {/* event horizon: the one thing in the scene that emits nothing */}
         <mesh>
           <sphereGeometry args={[1, 32, 32]} />
           <meshBasicMaterial color="#000000" />
@@ -995,6 +966,19 @@ const BlackHole = ({ position, scale = 1, mobile }: CelestialProps) => {
             transparent
             depthWrite={false}
             side={THREE.BackSide}
+            blending={THREE.AdditiveBlending}
+          />
+        </mesh>
+        {/* photon ring hugging the horizon; flares when the hole is fed */}
+        <mesh ref={photonRing}>
+          <torusGeometry args={[1.14, 0.022, 12, 96]} />
+          <meshBasicMaterial
+            ref={photonMaterial}
+            color="#ffffff"
+            transparent
+            opacity={0.85}
+            toneMapped={false}
+            depthWrite={false}
             blending={THREE.AdditiveBlending}
           />
         </mesh>
@@ -1023,21 +1007,6 @@ const BlackHole = ({ position, scale = 1, mobile }: CelestialProps) => {
           />
         </points>
       </group>
-      {/* Photon ring, outside the tilted group and turned to face the camera every
-          frame. Inside it, the torus projected as an ellipse and made the round
-          horizon read as an oval — and a light ring is a circle from any angle. */}
-      <mesh ref={photonRing}>
-        <torusGeometry args={[1.16, 0.022, 12, 96]} />
-        <meshBasicMaterial
-          ref={photonMaterial}
-          color="#ffffff"
-          transparent
-          opacity={0.85}
-          toneMapped={false}
-          depthWrite={false}
-          blending={THREE.AdditiveBlending}
-        />
-      </mesh>
     </group>
   );
 };
@@ -1059,7 +1028,6 @@ const SHELL_VERT = /* glsl */ `
   uniform float uTime;
   uniform float uBlast;  // -1 idle, else 0..1
   uniform float uScale;
-  uniform float uFade;   // global dimmer, so the hero can hold the shell back
   varying vec3 vColor;
   varying float vGlow;
 
@@ -1072,7 +1040,7 @@ const SHELL_VERT = /* glsl */ `
     float surge = sin(blast * 3.14159) * 2.9 * firing;
     vec3 p = aDir * (aRadius * breathe + surge);
 
-    vColor = aColor * uFade;
+    vColor = aColor;
     vGlow = firing * pow(1.0 - blast, 2.0);
 
     vec4 mv = modelViewMatrix * vec4(p, 1.0);
@@ -1154,7 +1122,6 @@ const shellGeometry = (count: number) => {
 };
 
 const Supernova = ({ position, scale = 1, mobile }: CelestialProps) => {
-  const root = useRef<THREE.Group>(null);
   const core = useRef<THREE.Mesh>(null);
   const coreMaterial = useRef<THREE.MeshBasicMaterial>(null);
   const corona = useRef<THREE.ShaderMaterial>(null);
@@ -1168,14 +1135,9 @@ const Supernova = ({ position, scale = 1, mobile }: CelestialProps) => {
   const [hovered, setHovered] = useState(false);
   useCursor(hovered);
 
-  const ejecta = useMemo(() => shellGeometry(mobile ? 1150 : 2800), [mobile]);
+  const ejecta = useMemo(() => shellGeometry(mobile ? 2000 : 2800), [mobile]);
   const shellUniforms = useMemo(
-    () => ({
-      uTime: { value: 0 },
-      uBlast: { value: -1 },
-      uScale: { value: 600 },
-      uFade: { value: 1 },
-    }),
+    () => ({ uTime: { value: 0 }, uBlast: { value: -1 }, uScale: { value: 600 } }),
     [],
   );
   const coronaUniforms = useMemo(
@@ -1198,17 +1160,14 @@ const Supernova = ({ position, scale = 1, mobile }: CelestialProps) => {
     }
     const t = blast.current;
 
-    const veil = heroVeil(mobile);
-    if (root.current) root.current.visible = veil > HERO_GATE;
     if (core.current) core.current.scale.setScalar(1 + Math.sin(time * 2.5) * 0.14 + flash.current);
-    if (coreMaterial.current) coreMaterial.current.opacity = Math.min(1, 0.9 + flash.current) * veil;
-    if (corona.current) corona.current.uniforms.uIntensity.value = (1.1 + flash.current * 4) * veil;
+    if (coreMaterial.current) coreMaterial.current.opacity = Math.min(1, 0.9 + flash.current);
+    if (corona.current) corona.current.uniforms.uIntensity.value = 1.1 + flash.current * 4;
 
     if (shellMaterial.current) {
       shellMaterial.current.uniforms.uTime.value = time;
       shellMaterial.current.uniforms.uBlast.value = t;
       shellMaterial.current.uniforms.uScale.value = pixelsPerUnit(size.height, viewport.dpr, camera);
-      shellMaterial.current.uniforms.uFade.value = veil;
     }
     if (wave.current && waveMaterial.current) {
       wave.current.visible = t >= 0;
@@ -1225,7 +1184,7 @@ const Supernova = ({ position, scale = 1, mobile }: CelestialProps) => {
   };
 
   return (
-    <group ref={root} position={position} scale={scale}>
+    <group position={position} scale={scale}>
       {/* invisible hitbox: keeps the hover alive while the camera leans in */}
       <mesh
         onPointerOver={(e) => {
