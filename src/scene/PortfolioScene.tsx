@@ -31,6 +31,18 @@ const useAspect = () => {
 export const SECTION_COUNT = 5;
 const SECTION_DEPTH = 14;
 
+// Scene fog, also handed to the grain shaders by hand. three only injects its fog
+// chunks into built-in materials, so a raw ShaderMaterial is otherwise the one
+// thing here that never fades with distance — which is why the accretion disc was
+// still at full brightness behind the hero title from 43 units away, one unit past
+// where the fog ends and everything else has already vanished.
+const FOG_NEAR = 8;
+const FOG_FAR = 42;
+
+// Portrait only, per the brief. On desktop the wider frame keeps the astres clear
+// of the hero type, so their grains keep their unlimited reach.
+const fogRange = (mobile?: boolean) => new THREE.Vector2(FOG_NEAR, mobile ? FOG_FAR : 1e6);
+
 const NEON = {
   violet: '#a855f7',
   cyan: '#22d3ee',
@@ -369,8 +381,10 @@ const RING_VERT = /* glsl */ `
   uniform float uPush;   // radial displacement at the crest; negative drags grains in
   uniform float uLift;   // out-of-plane displacement at the crest
   uniform float uBeam;   // 0 = even, 1 = one limb brightened, the way a relativistic disc reads
+  uniform vec2 uFog;     // near, far — matched to the scene's own fog
   varying vec3 vColor;
   varying float vGlow;
+  varying float vFog;
 
   void main() {
     float radius = length(position.xz);
@@ -393,6 +407,7 @@ const RING_VERT = /* glsl */ `
     vGlow = wave;
 
     vec4 mv = modelViewMatrix * vec4(p, 1.0);
+    vFog = 1.0 - clamp((-mv.z - uFog.x) / (uFog.y - uFog.x), 0.0, 1.0);
     // capped: the mobile flyby passes far closer than the desktop track, and
     // uncapped grains balloon into confetti that no longer reads as a band
     gl_PointSize = min(aSize * (1.0 + wave * 2.4) * uScale / max(0.001, -mv.z), 11.0);
@@ -403,12 +418,14 @@ const RING_VERT = /* glsl */ `
 const RING_FRAG = /* glsl */ `
   varying vec3 vColor;
   varying float vGlow;
+  varying float vFog;
 
   void main() {
+    if (vFog < 0.01) discard;
     vec2 uv = gl_PointCoord - 0.5;
     float d2 = dot(uv, uv);
     if (d2 > 0.25) discard;
-    gl_FragColor = vec4(vColor * (1.0 + vGlow * 2.2), smoothstep(0.25, 0.02, d2));
+    gl_FragColor = vec4(vColor * (1.0 + vGlow * 2.2), smoothstep(0.25, 0.02, d2) * vFog);
   }
 `;
 
@@ -587,8 +604,9 @@ const Planet = ({ position, scale = 1, mobile }: CelestialProps) => {
       uPush: { value: 0.26 },
       uLift: { value: 0.55 },
       uBeam: { value: 0 },
+      uFog: { value: fogRange(mobile) },
     }),
-    [],
+    [mobile],
   );
   const atmosphereUniforms = useMemo(
     () => ({ uColor: { value: new THREE.Color('#8b5cf6') }, uIntensity: { value: 1 } }),
@@ -881,8 +899,9 @@ const BlackHole = ({ position, scale = 1, mobile }: CelestialProps) => {
       uPush: { value: -0.3 },
       uLift: { value: 0.12 },
       uBeam: { value: 1 },
+      uFog: { value: fogRange(mobile) },
     }),
-    [],
+    [mobile],
   );
   const jetUniforms = useMemo(() => ({ uJet: { value: 0 }, uScale: { value: 600 } }), []);
   const lensUniforms = useMemo(
@@ -1028,8 +1047,10 @@ const SHELL_VERT = /* glsl */ `
   uniform float uTime;
   uniform float uBlast;  // -1 idle, else 0..1
   uniform float uScale;
+  uniform vec2 uFog;     // near, far — matched to the scene's own fog
   varying vec3 vColor;
   varying float vGlow;
+  varying float vFog;
 
   void main() {
     float firing = step(0.0, uBlast);
@@ -1044,6 +1065,7 @@ const SHELL_VERT = /* glsl */ `
     vGlow = firing * pow(1.0 - blast, 2.0);
 
     vec4 mv = modelViewMatrix * vec4(p, 1.0);
+    vFog = 1.0 - clamp((-mv.z - uFog.x) / (uFog.y - uFog.x), 0.0, 1.0);
     gl_PointSize = min(aSize * (1.0 + vGlow * 2.2) * uScale / max(0.001, -mv.z), 11.0);
     gl_Position = projectionMatrix * mv;
   }
@@ -1052,12 +1074,14 @@ const SHELL_VERT = /* glsl */ `
 const SHELL_FRAG = /* glsl */ `
   varying vec3 vColor;
   varying float vGlow;
+  varying float vFog;
 
   void main() {
+    if (vFog < 0.01) discard;
     vec2 uv = gl_PointCoord - 0.5;
     float d2 = dot(uv, uv);
     if (d2 > 0.25) discard;
-    gl_FragColor = vec4(vColor * (1.0 + vGlow * 2.4), smoothstep(0.25, 0.02, d2));
+    gl_FragColor = vec4(vColor * (1.0 + vGlow * 2.4), smoothstep(0.25, 0.02, d2) * vFog);
   }
 `;
 
@@ -1137,8 +1161,13 @@ const Supernova = ({ position, scale = 1, mobile }: CelestialProps) => {
 
   const ejecta = useMemo(() => shellGeometry(mobile ? 2000 : 2800), [mobile]);
   const shellUniforms = useMemo(
-    () => ({ uTime: { value: 0 }, uBlast: { value: -1 }, uScale: { value: 600 } }),
-    [],
+    () => ({
+      uTime: { value: 0 },
+      uBlast: { value: -1 },
+      uScale: { value: 600 },
+      uFog: { value: fogRange(mobile) },
+    }),
+    [mobile],
   );
   const coronaUniforms = useMemo(
     () => ({ uColor: { value: new THREE.Color('#ffd6ec') }, uIntensity: { value: 1 } }),
@@ -1758,7 +1787,7 @@ export const PortfolioScene = () => {
       onPointerMissed={launchComet}
     >
       <CaptureCamera cameraRef={cameraRef} />
-      <fog attach="fog" args={['#050510', 8, 42]} />
+      <fog attach="fog" args={['#050510', FOG_NEAR, FOG_FAR]} />
       <ambientLight intensity={0.4} />
       <pointLight position={[0, 6, 0]} intensity={30} color={NEON.violet} />
 
