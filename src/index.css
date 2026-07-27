@@ -129,6 +129,84 @@ a .reveal-word {
   }
 }
 
+/* ── Mobile chrome ───────────────────────────────────────────────────────── */
+
+/* Sits under the hero type only. The scene's fog already keeps the astres back at
+   the start of the journey; this holds the ground right around the words, where a
+   phone frame puts the ringed planet a thumb's width from the name. */
+@media (max-width: 767px) {
+  .hero-veil {
+    position: absolute;
+    /* bled off the section on every side: the falloff needs room or it reads as a
+       disc of paint rather than as depth */
+    inset: -12svh -25vw;
+    /* negative depth inside main's own stacking context: under the type, over the
+       fixed canvas */
+    z-index: -1;
+    pointer-events: none;
+    background: radial-gradient(
+      58% 42% at 50% 46%,
+      rgba(5, 5, 16, 0.88) 0%,
+      rgba(5, 5, 16, 0.66) 45%,
+      transparent 78%
+    );
+  }
+}
+
+/* The touch affordance for the astres (AstreHint). Sits above the mini-map, fades in
+   with the astre it names and out again once that astre is behind you. */
+.astre-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  border: 1px solid rgba(34, 211, 238, 0.3);
+  border-radius: 999px;
+  /* nearly solid: it is chrome, and it crosses in front of whatever the scene and the
+     copy happen to be doing down there */
+  background: rgba(5, 5, 16, 0.93);
+  padding: 0.4rem 0.9rem;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: #9be7ff;
+  text-shadow: 0 0 12px rgba(34, 211, 238, 0.8);
+  opacity: 0;
+  transform: translateY(0.5rem);
+  transition:
+    opacity 0.5s ease,
+    transform 0.5s ease;
+}
+
+.astre-hint.is-in {
+  opacity: 1;
+  transform: none;
+}
+
+/* the dot keeps a pulse on it, so the chip reads as live rather than as a caption */
+.astre-hint::before {
+  content: '';
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: 999px;
+  background: #22d3ee;
+  box-shadow: 0 0 10px #22d3ee;
+  animation: hint-pulse 2s ease-in-out infinite;
+}
+
+@keyframes hint-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
 /* ── Mobile section bodies ───────────────────────────────────────────────── */
 
 /* On mobile the body text is ordinary page content laid over the 3D scene, so it
@@ -138,6 +216,35 @@ a .reveal-word {
    and a blurred backdrop this large would repaint with it. Desktop keeps the bare
    floating text, hence the media query rather than a utility class. */
 @media (max-width: 767px) {
+  /* Numbered eyebrow standing in for the desktop ghost number, tinted by the astre
+     the section is staged against. The trailing rule is what the desktop layout put
+     under the title — one line carrying both means the copy starts a third of a
+     screen higher. */
+  .section-index {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.85rem;
+    color: rgb(var(--accent));
+    text-shadow: 0 0 14px rgb(var(--accent) / 0.65);
+  }
+
+  .section-index::after {
+    content: '';
+    flex: 0 0 2.75rem;
+    height: 1px;
+    background: linear-gradient(to right, rgb(var(--accent) / 0.85), transparent);
+  }
+
+  /* Solid white rather than the desktop violet→white→cyan gradient: at 2.6rem the
+     gradient's midpoint eats most of the word and the ends turn muddy. The accent
+     comes back as the glow and the eyebrow, so the section keeps its colour without
+     spending it on the legibility of its own title. */
+  .section-title {
+    text-wrap: balance;
+    filter: drop-shadow(0 0 22px rgb(var(--accent) / 0.45));
+  }
+
   .section-panel {
     position: relative;
     padding: 0.5rem 0.25rem 1.25rem;
@@ -194,6 +301,8 @@ a .reveal-word {
      scoping in the markup and would move desktop line-heights with them. */
   .section-panel p {
     line-height: 1.7;
+    /* no orphan hanging off the end of a paragraph on a 40-character measure */
+    text-wrap: pretty;
   }
 }
 

@@ -12,6 +12,7 @@ import {
 import { PortfolioScene } from './scene/PortfolioScene';
 import { CursorGlow } from './CursorGlow';
 import { MiniMap } from './MiniMap';
+import { AstreHint } from './AstreHint';
 import { LangToggle } from './LangToggle';
 import { journeyProgress, scrollState } from './scrollState';
 import { useT, LINKS } from './i18n';
@@ -20,9 +21,9 @@ type SectionProps = {
   index: string;
   title: string;
   align?: 'left' | 'right' | 'center';
-  // mobile: the title gets a screen of its own, so the section's celestial object
-  // has an unobstructed showcase behind it. The body then scrolls in below, on its
-  // own backdrop, while the astre slides away.
+  // mobile: the title and its copy read as one block at the top of the section, and
+  // the empty scroll that follows is where the section's astre gets the frame to
+  // itself. The showcase is the silence after the text, not a screen of its own.
   showcase?: boolean;
   // The astre standing behind this section: its color tints the scrim's light leak,
   // and `leak` says which side of the frame that light comes from. Hard-coded rather
@@ -122,44 +123,55 @@ const Section = ({
     align === 'center' ? 'mx-auto text-center' : align === 'right' ? 'ml-auto' : 'mr-auto';
 
   return (
-    // svh: sized to the small viewport so the collapsing mobile URL bar never shifts the layout
-    <section className="flex min-h-svh items-center px-6 py-24 md:min-h-screen md:px-12">
+    // svh: sized to the small viewport so the collapsing mobile URL bar never shifts the
+    // layout. Mobile stacks from a fixed offset off the top rather than centering: every
+    // section then opens at the same height, which reads as a rhythm instead of the text
+    // floating at a different place each time.
+    <section
+      className="flex min-h-svh flex-col px-5 pt-[13svh] pb-[6svh] md:min-h-screen md:flex-row md:items-center md:px-12 md:py-24"
+      style={{ '--accent': ACCENTS[accent], '--leak-x': LEAK_X[leak] } as CSSProperties}
+    >
       {/* max-w-6xl keeps content near the center on ultrawide screens */}
       <div className="mx-auto w-full max-w-6xl">
-        {/* pointer-events: none on mobile so taps reach the 3D objects behind the
-            full-screen title — only the body panel re-enables them */}
+        {/* pointer-events: none on mobile so taps reach the 3D objects behind the text
+            — only the body panel's links re-enable them */}
         <div className={`pointer-events-none w-full max-w-2xl md:pointer-events-auto ${placement}`}>
-          <div
-            className={
-              showcase ? 'flex h-svh flex-col justify-start pt-28 md:block md:h-auto md:pt-0' : ''
-            }
-          >
-            <div className="relative">
-              <span
-                aria-hidden
-                className="ghost-number absolute -top-20 -left-2 text-[9rem] font-bold select-none md:-top-28 md:text-[13rem]"
-              >
-                {index}
-              </span>
-              <h2 className="relative mb-4 bg-gradient-to-r from-neon-violet via-white to-neon-cyan bg-clip-text text-5xl font-bold text-transparent drop-shadow-[0_0_30px_rgba(168,85,247,0.5)] md:text-7xl">
-                {title}
-              </h2>
-              <div
-                className={`mb-10 h-px w-44 bg-gradient-to-r from-neon-cyan to-transparent shadow-[0_0_12px_#22d3ee] ${align === 'center' ? 'mx-auto' : ''}`}
-              />
-            </div>
+          <div className="relative">
+            <span
+              aria-hidden
+              className="ghost-number absolute -top-28 -left-2 hidden text-[13rem] font-bold select-none md:block"
+            >
+              {index}
+            </span>
+            {/* mobile: the giant ghost number needed a screen of its own to breathe.
+                A numbered eyebrow in the astre's own colour says the same in one line,
+                and gives each section a colour identity on the way past. */}
+            <span
+              aria-hidden
+              className={`section-index text-[0.6875rem] font-bold tracking-[0.45em] md:hidden ${
+                align === 'center' ? 'justify-center' : ''
+              }`}
+            >
+              {index}
+            </span>
+            <h2 className="section-title relative mb-5 text-[2.6rem] leading-[1.05] font-bold tracking-[-0.02em] text-white md:mb-4 md:bg-gradient-to-r md:from-neon-violet md:via-white md:to-neon-cyan md:bg-clip-text md:text-7xl md:leading-none md:tracking-normal md:text-transparent md:drop-shadow-[0_0_30px_rgba(168,85,247,0.5)]">
+              {title}
+            </h2>
+            {/* desktop-only: on mobile the eyebrow already carries the accent rule, and
+                two of them stacked was half the empty space between title and copy */}
+            <div
+              className={`mb-10 hidden h-px w-44 bg-gradient-to-r from-neon-cyan to-transparent shadow-[0_0_12px_#22d3ee] md:block ${align === 'center' ? 'mx-auto' : ''}`}
+            />
           </div>
           {/* mobile: the body stays transparent to taps so the astres behind it keep
               their whole surface — only links opt back in (index.css) */}
-          <div
-            className={`holo-text md:pointer-events-auto ${showcase ? 'section-panel' : ''}`}
-            style={{ '--accent': ACCENTS[accent], '--leak-x': LEAK_X[leak] } as CSSProperties}
-          >
+          <div className={`holo-text md:pointer-events-auto ${showcase ? 'section-panel' : ''}`}>
             {children}
           </div>
-          {/* mobile: empty scroll after each astre's text, so the next one is a
-              journey away rather than the very next screenful */}
-          {showcase && <div aria-hidden className="h-[38svh] md:hidden" />}
+          {/* mobile: the showcase. Empty scroll, no type in the way, the astre coming up
+              on the frame — this is where the flyby happens, and it is also what keeps
+              the next section a journey away rather than the next screenful. */}
+          {showcase && <div aria-hidden className="h-[78svh] md:hidden" />}
         </div>
       </div>
     </section>
@@ -182,21 +194,29 @@ const lerpColor = (from: string, to: string, t: number) => {
 const HeroName = () => {
   const lastName = 'Bonvin';
   return (
-    <h1 className="pointer-events-auto text-[2.5rem] font-bold whitespace-nowrap sm:text-6xl md:text-8xl">
-      {'Adrien'.split('').map((letter, i) => (
-        <span key={i} className="hero-letter">
-          {letter}
-        </span>
-      ))}{' '}
-      {lastName.split('').map((letter, i) => (
-        <span
-          key={i}
-          className="hero-letter"
-          style={{ color: lerpColor('#a855f7', '#f472b6', i / (lastName.length - 1)) }}
-        >
-          {letter}
-        </span>
-      ))}
+    // mobile: the two names stack. On one line they had to shrink to 2.5rem to fit a
+    // narrow frame, which is a small headline for the first thing anyone sees — stacked
+    // they get half again the size and read as a mark rather than as a caption.
+    <h1 className="pointer-events-auto text-[3.5rem] leading-[0.92] font-bold tracking-[-0.03em] md:text-8xl md:leading-none md:tracking-normal md:whitespace-nowrap">
+      <span className="block md:inline">
+        {'Adrien'.split('').map((letter, i) => (
+          <span key={i} className="hero-letter">
+            {letter}
+          </span>
+        ))}
+      </span>
+      <span className="hidden md:inline"> </span>
+      <span className="block md:inline">
+        {lastName.split('').map((letter, i) => (
+          <span
+            key={i}
+            className="hero-letter"
+            style={{ color: lerpColor('#a855f7', '#f472b6', i / (lastName.length - 1)) }}
+          >
+            {letter}
+          </span>
+        ))}
+      </span>
     </h1>
   );
 };
@@ -248,16 +268,32 @@ export const App = () => {
       <PortfolioScene />
       <CursorGlow />
       <MiniMap />
+      <AstreHint />
       <LangToggle />
 
       {/* pointer-events-none lets hovers/clicks reach the 3D canvas; cards re-enable them */}
       <main className="pointer-events-none relative z-10">
         {/* Hero */}
-        <section className="flex min-h-svh flex-col items-center justify-center px-6 text-center md:min-h-screen">
-          <p className="mb-4 text-sm tracking-[0.4em] text-neon-cyan uppercase">{t.hero.kicker}</p>
+        {/* relative only on mobile: it anchors the veil and the scroll cue, both of
+            which are md:hidden / md:static — desktop stays exactly as it was */}
+        <section className="relative flex min-h-svh flex-col items-center justify-center px-6 text-center md:static md:min-h-screen">
+          {/* mobile: a well of shadow under the type. The astres are the scenery, not
+              the headline, and on a phone frame the ringed planet sits right behind the
+              name — the scene's fog pulls them back too (PortfolioScene), this holds
+              the ground immediately around the words. */}
+          <div aria-hidden className="hero-veil md:hidden" />
+          <p className="mb-4 text-[0.6875rem] tracking-[0.35em] text-neon-cyan uppercase md:text-sm md:tracking-[0.4em]">
+            {t.hero.kicker}
+          </p>
           <HeroName />
-          <p className="mt-6 max-w-md text-lg text-white/70">{t.hero.tagline}</p>
-          <div className="mt-16 animate-bounce text-white/50">{t.hero.scroll}</div>
+          <p className="mt-5 max-w-md text-base text-white/70 md:mt-6 md:text-lg">
+            {t.hero.tagline}
+          </p>
+          {/* mobile: parked at the bottom edge rather than a fixed gap under the tagline,
+              so the hero reads as name-then-horizon instead of three blocks adrift */}
+          <div className="absolute bottom-[14svh] animate-bounce text-xs tracking-widest text-white/50 md:static md:mt-16 md:text-base md:tracking-normal">
+            {t.hero.scroll}
+          </div>
         </section>
 
         {/* accent/leak follow the astre each section is staged against: the ringed
@@ -308,11 +344,13 @@ export const App = () => {
                 <TagPills tags={project.tags} />
                 <p className="mt-4 text-white/75 md:text-lg">{project.text}</p>
                 <div className="mt-4 flex flex-wrap gap-3">
+                  {/* mobile: a 44px-tall target, so the pill is a thumb-sized thing
+                      and not a 24px sliver floating over a 3D canvas */}
                   {project.links.map((link) => (
                     <ExternalLink
                       key={link.href}
                       href={link.href}
-                      className="rounded-full border border-neon-cyan/50 px-4 py-1.5 text-sm font-bold text-neon-cyan transition hover:bg-neon-cyan/10 hover:shadow-[0_0_25px_-5px_#22d3ee]"
+                      className="rounded-full border border-neon-cyan/50 px-5 py-2.5 text-sm font-bold text-neon-cyan transition hover:bg-neon-cyan/10 hover:shadow-[0_0_25px_-5px_#22d3ee] md:px-4 md:py-1.5"
                     >
                       {link.label} ↗
                     </ExternalLink>
@@ -326,7 +364,9 @@ export const App = () => {
         <Section index="04" title={t.contact.title} align="center" accent="violet">
           <Reveal>
             <p className="text-lg text-white/85 md:text-xl">{t.contact.text}</p>
-            <p className="mt-6 animate-pulse text-sm font-bold tracking-[0.3em] text-neon-cyan/80 uppercase">
+            {/* tighter tracking on mobile: at 0.3em this runs edge to edge on a phone
+                and wraps mid-phrase */}
+            <p className="mt-6 animate-pulse text-xs font-bold tracking-[0.18em] text-neon-cyan/80 uppercase md:text-sm md:tracking-[0.3em]">
               {t.contact.hint}
             </p>
           </Reveal>
