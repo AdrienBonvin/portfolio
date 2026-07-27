@@ -11,13 +11,10 @@ type SectionProps = {
   index: string;
   title: string;
   align?: 'left' | 'right' | 'center';
-  // mobile: the empty scroll after the copy is where the section's astre gets the
-  // frame to itself. The showcase is the silence after the text, not a screen of its own.
-  showcase?: boolean;
   children: ReactNode;
 };
 
-const Section = ({ index, title, align = 'left', showcase, children }: SectionProps) => {
+const Section = ({ index, title, align = 'left', children }: SectionProps) => {
   const placement =
     align === 'center' ? 'mx-auto text-center' : align === 'right' ? 'ml-auto' : 'mr-auto';
 
@@ -29,6 +26,11 @@ const Section = ({ index, title, align = 'left', showcase, children }: SectionPr
         {/* pointer-events: none on mobile so taps reach the 3D objects behind the text
             — only the body's own links re-enable them (index.css) */}
         <div className={`pointer-events-none w-full max-w-2xl md:pointer-events-auto ${placement}`}>
+          {/* mobile: a screen of empty scroll before the title. It is the approach to the
+              section — and, since it sits where the previous section's astre finishes its
+              flyby, it is what keeps the type out of the frame until that astre has gone
+              past. Depths in scene/astres.ts are tuned against these offsets. */}
+          <div aria-hidden className="h-svh md:hidden" />
           <div className="relative">
             <span
               aria-hidden
@@ -44,9 +46,6 @@ const Section = ({ index, title, align = 'left', showcase, children }: SectionPr
             />
           </div>
           <div className="holo-text">{children}</div>
-          {/* mobile: the showcase. Empty scroll, no type in the way, the astre coming up
-              on the frame — and it keeps the next section a journey away. */}
-          {showcase && <div aria-hidden className="h-[78svh] md:hidden" />}
         </div>
       </div>
     </section>
@@ -171,7 +170,7 @@ export const App = () => {
           </div>
         </section>
 
-        <Section index="01" title={t.about.title} showcase>
+        <Section index="01" title={t.about.title}>
           <p className="text-lg leading-relaxed text-white/85 md:text-xl">
             {t.about.before}
             <ExternalLink
@@ -184,7 +183,7 @@ export const App = () => {
           </p>
         </Section>
 
-        <Section index="02" title={t.experience.title} align="right" showcase>
+        <Section index="02" title={t.experience.title} align="right">
           <div className="space-y-8 md:space-y-10">
             {t.experience.entries.map((entry) => (
               <div key={entry.title}>
@@ -197,7 +196,7 @@ export const App = () => {
           </div>
         </Section>
 
-        <Section index="03" title={t.projects.title} showcase>
+        <Section index="03" title={t.projects.title}>
           <div className="space-y-8 md:space-y-10">
             {t.projects.items.map((project) => (
               <div key={project.title}>
