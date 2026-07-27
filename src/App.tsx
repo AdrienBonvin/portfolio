@@ -38,8 +38,13 @@ const Section = ({ index, title, align = 'left', final, children }: SectionProps
           {/* mobile: a screen of empty scroll before the title. It is the approach to the
               section — and, since it sits where the previous section's astre finishes its
               flyby, it is what keeps the type out of the frame until that astre has gone
-              past. Depths in scene/astres.ts are tuned against these offsets. */}
-          <div aria-hidden className="h-svh md:hidden" />
+              past. Depths in scene/astres.ts are tuned against these offsets.
+
+              Not on the last one: journeyProgress pins at 1 from the top of the final
+              section, so every pixel after that point is scroll with the scene frozen on
+              the galaxy. Giving the arrival an approach as well would mean a whole screen
+              of that — the galaxy has to land as the page ends, not a screen earlier. */}
+          {!final && <div aria-hidden className="h-svh md:hidden" />}
           <div
             className={final ? 'flex min-h-svh flex-col justify-center md:block md:min-h-0' : ''}
           >
