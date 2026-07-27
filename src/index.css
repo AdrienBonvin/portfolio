@@ -91,11 +91,16 @@ main button {
        fixed canvas */
     z-index: -1;
     pointer-events: none;
+    /* Barely there. HERO_FOG_FAR already holds the planet back, so this only has to take
+       the edge off whatever bright thing drifts behind the words. Kept very low on
+       purpose: the starfield is faint to begin with, and even a 50% black wash over it
+       erased the stars along with the planet — which is how the first screen ended up
+       reading as a black rectangle. */
     background: radial-gradient(
-      58% 42% at 50% 46%,
-      rgba(5, 5, 16, 0.88) 0%,
-      rgba(5, 5, 16, 0.66) 45%,
-      transparent 78%
+      46% 34% at 50% 46%,
+      rgba(5, 5, 16, 0.28) 0%,
+      rgba(5, 5, 16, 0.12) 45%,
+      transparent 70%
     );
   }
 }

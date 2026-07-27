@@ -11,16 +11,25 @@ type SectionProps = {
   index: string;
   title: string;
   align?: 'left' | 'right' | 'center';
+  // The journey's destination. On mobile it gets a screen of its own after the approach,
+  // with the copy centred in it — the page ends here, so this is the frame the reader
+  // is left looking at, and it must not sit low like a section still being scrolled past.
+  final?: boolean;
   children: ReactNode;
 };
 
-const Section = ({ index, title, align = 'left', children }: SectionProps) => {
+const Section = ({ index, title, align = 'left', final, children }: SectionProps) => {
   const placement =
     align === 'center' ? 'mx-auto text-center' : align === 'right' ? 'ml-auto' : 'mr-auto';
 
   return (
     // svh: sized to the small viewport so the collapsing mobile URL bar never shifts the layout
-    <section className="flex min-h-svh items-center px-6 py-24 md:min-h-screen md:px-12">
+    <section
+      className={`flex min-h-svh items-center px-6 md:min-h-screen md:px-12 md:py-24 ${
+        // no bottom padding on the last one: it is what centres the closing screen
+        final ? 'pt-24 pb-0' : 'py-24'
+      }`}
+    >
       {/* max-w-6xl keeps content near the center on ultrawide screens */}
       <div className="mx-auto w-full max-w-6xl">
         {/* pointer-events: none on mobile so taps reach the 3D objects behind the text
@@ -31,21 +40,25 @@ const Section = ({ index, title, align = 'left', children }: SectionProps) => {
               flyby, it is what keeps the type out of the frame until that astre has gone
               past. Depths in scene/astres.ts are tuned against these offsets. */}
           <div aria-hidden className="h-svh md:hidden" />
-          <div className="relative">
-            <span
-              aria-hidden
-              className="ghost-number absolute -top-20 -left-2 text-[9rem] font-bold select-none md:-top-28 md:text-[13rem]"
-            >
-              {index}
-            </span>
-            <h2 className="relative mb-4 bg-gradient-to-r from-neon-violet via-white to-neon-cyan bg-clip-text text-5xl font-bold text-transparent drop-shadow-[0_0_30px_rgba(168,85,247,0.5)] md:text-7xl">
-              {title}
-            </h2>
-            <div
-              className={`mb-10 h-px w-44 bg-gradient-to-r from-neon-cyan to-transparent shadow-[0_0_12px_#22d3ee] ${align === 'center' ? 'mx-auto' : ''}`}
-            />
+          <div
+            className={final ? 'flex min-h-svh flex-col justify-center md:block md:min-h-0' : ''}
+          >
+            <div className="relative">
+              <span
+                aria-hidden
+                className="ghost-number absolute -top-20 -left-2 text-[9rem] font-bold select-none md:-top-28 md:text-[13rem]"
+              >
+                {index}
+              </span>
+              <h2 className="relative mb-4 bg-gradient-to-r from-neon-violet via-white to-neon-cyan bg-clip-text text-5xl font-bold text-transparent drop-shadow-[0_0_30px_rgba(168,85,247,0.5)] md:text-7xl">
+                {title}
+              </h2>
+              <div
+                className={`mb-10 h-px w-44 bg-gradient-to-r from-neon-cyan to-transparent shadow-[0_0_12px_#22d3ee] ${align === 'center' ? 'mx-auto' : ''}`}
+              />
+            </div>
+            <div className="holo-text">{children}</div>
           </div>
-          <div className="holo-text">{children}</div>
         </div>
       </div>
     </section>
@@ -221,7 +234,7 @@ export const App = () => {
           </div>
         </Section>
 
-        <Section index="04" title={t.contact.title} align="center">
+        <Section index="04" title={t.contact.title} align="center" final>
           <p className="text-lg text-white/85 md:text-xl">{t.contact.text}</p>
           {/* tighter tracking on mobile: at 0.3em this runs edge to edge on a phone
               and wraps mid-phrase */}

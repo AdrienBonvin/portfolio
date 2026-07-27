@@ -37,12 +37,14 @@ const useAspect = () => {
 const FOG_NEAR = 8;
 const FOG_FAR = 42;
 
-// Portrait only: at the hero the corridor is closed off a few units past the camera,
-// so the astres are still out there in the dark rather than hanging behind the title
-// on a frame a third as wide as a desktop one. It opens back up to FOG_FAR over the
-// first third of the journey, so each astre materialises out of the void as you scroll
-// toward it — which is a better entrance than being visible from the first frame.
-const HERO_FOG_FAR = 19;
+// Portrait only: at the hero the corridor is closed off short of the first astre, so the
+// planet is still out there in the dark rather than hanging behind the title on a frame a
+// third as wide as a desktop one. Set just under its 28-unit distance rather than well
+// under it: that hides the planet, which is the only thing that ever fought the type,
+// while the grid, the asteroids and the near starfield stay in frame. It opens back up to
+// FOG_FAR over the first third of the journey, so each astre still materialises out of
+// the void as you scroll toward it.
+const HERO_FOG_FAR = 26;
 
 // One shared vector, so the drive below reaches every grain shader at once — three
 // only injects its fog chunks into built-in materials, and a raw ShaderMaterial is
