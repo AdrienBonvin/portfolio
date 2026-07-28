@@ -1181,10 +1181,15 @@ const BlackHole = ({ position, scale = 1, mobile }: CelestialProps) => {
 // cones and rings, and it is the only astre in the scene with a rhythm — the
 // others turn, this one beats.
 
-const BEAM_LENGTH = 7;
-const BEAM_RADIUS = 1.3;
+// Long and narrow rather than short and wide: a searing shaft carries further across the
+// frame and keeps its shape when the camera is close, where a fat cone just becomes a haze.
+const BEAM_LENGTH = 11;
+const BEAM_RADIUS = 1;
 const MAGNETIC_TILT = 0.55; // offset from the spin axis, which is what makes it sweep
-const PULSE_RINGS = 3;
+const PULSE_RINGS = 5;
+// How sharply the beam has to be pointing at you to blind you. High, so the sweep lands as
+// a strike rather than a gradual brightening — this is the whole lighthouse effect.
+const SWEEP_FOCUS = 9;
 
 // A hollow open cone, lit at the silhouette. Seen edge-on the walls pile up and
 // the shaft reads as volume, which a flat triangle of colour never does.
@@ -1225,6 +1230,9 @@ const BEAM_FRAG = /* glsl */ `
 const Pulsar = ({ position, scale = 1, mobile }: CelestialProps) => {
   const root = useRef<THREE.Group>(null);
   const spin = useRef<THREE.Group>(null);
+  // the tilted group the beams live in: its local +Y is the magnetic axis, and where that
+  // axis is pointing relative to the viewer is what the sweep is made of
+  const axis = useRef<THREE.Group>(null);
   const core = useRef<THREE.Mesh>(null);
   const coreMaterial = useRef<THREE.MeshBasicMaterial>(null);
   const corona = useRef<THREE.ShaderMaterial>(null);
@@ -1233,6 +1241,8 @@ const Pulsar = ({ position, scale = 1, mobile }: CelestialProps) => {
   const ringMaterials = useRef<(THREE.MeshBasicMaterial | null)[]>([]);
   const burst = useRef<THREE.Mesh>(null);
   const burstMaterial = useRef<THREE.MeshBasicMaterial>(null);
+  const wake = useRef<THREE.Mesh>(null);
+  const wakeMaterial = useRef<THREE.MeshBasicMaterial>(null);
   const spinBoost = useRef(0);
   const flash = useRef(0);
   // -1 = idle, otherwise the progress of the click's shockwave
@@ -1265,44 +1275,88 @@ const Pulsar = ({ position, scale = 1, mobile }: CelestialProps) => {
     [mobile],
   );
 
-  useFrame(({ clock }, delta) => {
+  // scratch vectors, so the sweep costs no allocation per frame
+  const beamAxis = useMemo(() => new THREE.Vector3(), []);
+  const toViewer = useMemo(() => new THREE.Vector3(), []);
+
+  useFrame(({ clock, camera }, delta) => {
     const time = clock.elapsedTime;
     spinBoost.current = THREE.MathUtils.damp(spinBoost.current, 0, 1.3, delta);
     flash.current = THREE.MathUtils.damp(flash.current, 0, 2.6, delta);
-    if (spin.current) spin.current.rotation.y += delta * (0.9 + spinBoost.current);
+    if (spin.current) spin.current.rotation.y += delta * (1.15 + spinBoost.current);
 
     // the beat: a sharp crest once per turn rather than a gentle sine, so it
     // reads as a pulse and not as breathing
     const beat = Math.abs(Math.sin(time * 1.6)) ** 6;
 
-    if (core.current) core.current.scale.setScalar(1 + beat * 0.25 + flash.current * 0.8);
+    // The lighthouse. The beams already swept — but only their brightness was animated, on
+    // a timer that had nothing to do with where they were pointing, so the one moment that
+    // makes a pulsar a pulsar never happened: the strike as the shaft comes round onto you.
+    // This reads the magnetic axis out of the tilted group's world matrix (its local +Y,
+    // the 2nd column) and measures it against the direction of the camera. Absolute value
+    // because the star fires both ways, and a high power so the flare is a strike and not a
+    // swell.
+    let sweep = 0;
+    if (axis.current) {
+      const m = axis.current.matrixWorld.elements;
+      beamAxis.set(m[4], m[5], m[6]).normalize();
+      toViewer
+        .set(
+          camera.position.x - position[0],
+          camera.position.y - position[1],
+          camera.position.z - position[2],
+        )
+        .normalize();
+      sweep = Math.abs(beamAxis.dot(toViewer)) ** SWEEP_FOCUS;
+    }
+
+    if (core.current) {
+      core.current.scale.setScalar(1 + beat * 0.25 + sweep * 0.5 + flash.current * 0.9);
+    }
     if (coreMaterial.current) coreMaterial.current.opacity = Math.min(1, 0.85 + flash.current);
     if (corona.current) {
-      corona.current.uniforms.uIntensity.value = 1.2 + beat * 1.4 + flash.current * 4;
+      corona.current.uniforms.uIntensity.value =
+        1.2 + beat * 1.4 + sweep * 2.6 + flash.current * 4.5;
     }
     if (beamMaterial.current) {
-      beamMaterial.current.uniforms.uIntensity.value = 0.55 + beat * 0.7 + flash.current * 3;
+      // the shaft itself is dimmer than before between sweeps and far brighter through one:
+      // the average luminance barely moves, the drama is all in the contrast
+      beamMaterial.current.uniforms.uIntensity.value =
+        0.4 + beat * 0.6 + sweep * 2.2 + flash.current * 3.5;
     }
 
     // radio pulses leaving the star, staggered so one is always on its way out
     rings.current.forEach((ring, i) => {
       const material = ringMaterials.current[i];
       if (!ring || !material) return;
-      const t = (time * 0.38 + i / PULSE_RINGS) % 1;
-      ring.scale.setScalar(0.6 + t * 7);
-      material.opacity = (1 - t) ** 2 * 0.55;
+      const t = (time * 0.5 + i / PULSE_RINGS) % 1;
+      ring.scale.setScalar(0.6 + t * 9);
+      material.opacity = (1 - t) ** 2 * 0.5;
     });
 
     if (shock.current >= 0) {
-      shock.current += delta / 1.1;
+      shock.current += delta / 1.3;
       if (shock.current > 1) shock.current = -1;
     }
+    // Two fronts from one tap, not one: a hard white ring that outruns everything, and a
+    // slower cyan one behind it. One expanding circle reads as a ripple; two at different
+    // speeds read as something that detonated.
     if (burst.current && burstMaterial.current) {
       const t = shock.current;
       burst.current.visible = t >= 0;
       if (t >= 0) {
-        burst.current.scale.setScalar(0.8 + t * 13);
-        burstMaterial.current.opacity = Math.max(0, 1 - t) ** 1.8;
+        burst.current.scale.setScalar(0.8 + t * 20);
+        burstMaterial.current.opacity = Math.max(0, 1 - t) ** 1.6;
+      }
+    }
+    if (wake.current && wakeMaterial.current) {
+      // starts a beat late and travels two thirds as far, so it is still on its way out
+      // when the first front has gone
+      const t = shock.current >= 0 ? Math.max(0, shock.current - 0.12) / 0.88 : -1;
+      wake.current.visible = t >= 0;
+      if (t >= 0) {
+        wake.current.scale.setScalar(0.6 + t * 13);
+        wakeMaterial.current.opacity = Math.max(0, 1 - t) ** 2 * 0.8;
       }
     }
   });
@@ -1351,7 +1405,7 @@ const Pulsar = ({ position, scale = 1, mobile }: CelestialProps) => {
       <group ref={spin}>
         {/* the magnetic axis is offset from the spin axis — that offset is the
             whole trick, it is what sweeps the beams around like a lighthouse */}
-        <group rotation={[0, 0, MAGNETIC_TILT]}>
+        <group ref={axis} rotation={[0, 0, MAGNETIC_TILT]}>
           <mesh geometry={beamGeometry}>
             <shaderMaterial
               ref={beamMaterial}
@@ -1408,6 +1462,20 @@ const Pulsar = ({ position, scale = 1, mobile }: CelestialProps) => {
         <meshBasicMaterial
           ref={burstMaterial}
           color="#ffffff"
+          transparent
+          opacity={0}
+          side={THREE.DoubleSide}
+          depthWrite={false}
+          toneMapped={false}
+          blending={THREE.AdditiveBlending}
+        />
+      </mesh>
+      {/* and the slower front behind it, thicker and cyan, so the tap has a wake */}
+      <mesh ref={wake} visible={false} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.7, 1, 128]} />
+        <meshBasicMaterial
+          ref={wakeMaterial}
+          color="#67e8f9"
           transparent
           opacity={0}
           side={THREE.DoubleSide}
