@@ -417,7 +417,7 @@ const AstreHitbox = ({
   live: boolean;
   focus: [number, number, number];
   onHover: (hovered: boolean) => void;
-  onTap: () => void;
+  onTap: (origin: { x: number; y: number }) => void;
 }) => (
   <mesh
     scale={live ? 1 : 0.0001}
@@ -432,7 +432,8 @@ const AstreHitbox = ({
     }}
     onClick={(e) => {
       e.stopPropagation();
-      onTap();
+      // the tap point in viewport pixels: the section copy lights up from here
+      onTap({ x: e.clientX, y: e.clientY });
     }}
   >
     <sphereGeometry args={[radius, 16, 16]} />
@@ -448,8 +449,12 @@ const AstreHitbox = ({
 // camera tips toward it for a beat and settles back, which is the difference between
 // a tap that plays an effect and a tap that moves the world. It also retires the
 // affordance chip (AstreHint) for that astre, since the point has been made.
-const answerTap = (key: AstreKey, position: [number, number, number]) => {
-  markTapped(key);
+const answerTap = (
+  key: AstreKey,
+  position: [number, number, number],
+  origin: { x: number; y: number },
+) => {
+  markTapped(key, origin);
   if (!isTouchDevice()) return;
   navigator.vibrate?.(12);
   focusState.target = new THREE.Vector3(...position);
@@ -778,12 +783,12 @@ const Planet = ({ position, scale = 1, mobile }: CelestialProps) => {
     }
   });
 
-  const detonate = () => {
+  const detonate = (origin: { x: number; y: number }) => {
     shock.current = 0;
     flash.current = 1;
     ringBoost.current += 9;
     moonBoost.current += 6;
-    answerTap('planet', position);
+    answerTap('planet', position, origin);
   };
 
   return (
@@ -1057,11 +1062,11 @@ const BlackHole = ({ position, scale = 1, mobile }: CelestialProps) => {
     if (lens.current) lens.current.uniforms.uIntensity.value = 0.7 + flare.current * 3;
   });
 
-  const detonate = () => {
+  const detonate = (origin: { x: number; y: number }) => {
     collapse.current = 0;
     flare.current = 1;
     discBoost.current += 7;
-    answerTap('blackHole', position);
+    answerTap('blackHole', position, origin);
   };
 
   return (
@@ -1271,11 +1276,11 @@ const Pulsar = ({ position, scale = 1, mobile }: CelestialProps) => {
     }
   });
 
-  const detonate = () => {
+  const detonate = (origin: { x: number; y: number }) => {
     shock.current = 0;
     flash.current = 1;
     spinBoost.current += 9;
-    answerTap('pulsar', position);
+    answerTap('pulsar', position, origin);
   };
 
   return (

@@ -43,33 +43,114 @@ html {
     0 0 10px rgba(5, 5, 16, 0.9);
 }
 
-/* ── Per-line scrim, mobile only ─────────────────────────────────────────────
-   A band that follows the line boxes instead of one rectangle around the block:
-   box-decoration-break clones the background onto every line, so it stops at the last
-   word of each line rather than squaring off at the column edge. The scene keeps coming
-   through between the lines, in the margins, and to the right of every short line —
-   which is what the block scrim never allowed.
+/* ── Copy the scene lights up (Ignite) ───────────────────────────────────────
+   Tapping an astre flares it and sends a wave of light across the copy it carries. Each
+   word's delay is its distance to the touch, set inline in JS, so the light travels
+   outward from the finger instead of running left to right.
 
-   Inert on desktop: the wrapper is there in the markup but carries nothing. */
+   Only opacity, transform and filter are animated — those stay on the compositor, which
+   matters with a WebGL canvas already claiming the frame budget.
+
+   Mobile only, and the whole thing has to be: desktop has no legibility problem to solve
+   — its frame is wide enough to keep the copy clear of the astres — and unscoped, the
+   dark state would hide the desktop copy until an astre happened to fly past. The word
+   spans stay in the markup there, they simply carry nothing and do not even become
+   inline-block, so the desktop line breaking is untouched. */
 @media (max-width: 767px) {
-  .line-scrim {
-    /* the background needs an inline box to be cloned per line */
-    -webkit-box-decoration-break: clone;
-    box-decoration-break: clone;
-    background: rgba(5, 5, 16, 0.8);
-    /* the horizontal padding is what lets the band breathe past the first and last
-       glyph; the vertical padding is eaten by the line-height below */
-    padding: 0.1em 0.3em;
-    border-radius: 0.25em;
-    /* -0.3em pulls the first line back level with the unpadded layout, so adding the
-       band does not shift the column right */
-    margin-left: -0.3em;
-    /* room for the bands to stack without overlapping: at the default leading they
-       collide and read as one solid block again */
-    line-height: 1.95;
-    /* the band is drawn per line, so a hyphenated break is better than a line whose
-       band runs the full column width for one long word */
-    overflow-wrap: break-word;
+  .ignite-word {
+    display: inline-block;
+  }
+
+  /* an inline-block is an atomic box, so an ancestor link stops drawing its underline
+     through it — only the spaces between words kept it */
+  a .ignite-word {
+    text-decoration: inherit;
+  }
+
+  /* Waiting to be lit. The words are in the DOM and readable by a screen reader; they are
+     simply not painted yet. */
+  .ignite.is-dark .ignite-word {
+    opacity: 0;
+  }
+
+  /* A link's underline is painted by the <a>, not by the words inside it, so it survives
+     its own text going transparent — the About paragraph showed two floating dashes where
+     the YouTube link was. */
+  .ignite.is-dark a {
+    text-decoration-color: transparent;
+  }
+
+  .ignite.is-lit .ignite-word {
+    /* backwards: the word holds the 0% frame through its own delay, so it stays dark until
+       the wave reaches it rather than flashing on and then animating */
+    animation: ignite 700ms cubic-bezier(0.16, 0.84, 0.28, 1) backwards;
+  }
+}
+
+/* The peak sits at 30%: a hard rise into the glow, then a long fall out of it. That is
+   the shape of the astre's own flare (flash damped back to 0 in PortfolioScene), which is
+   what ties the two together — the copy is lit by the flare, not faded in beside it. */
+@keyframes ignite {
+  0% {
+    opacity: 0;
+    transform: translateY(0.3em) scale(0.94);
+    filter: blur(7px) drop-shadow(0 0 0 rgba(155, 231, 255, 0));
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(0) scale(1.02);
+    filter: blur(0) drop-shadow(0 0 14px rgba(155, 231, 255, 0.95));
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+    filter: blur(0) drop-shadow(0 0 0 rgba(155, 231, 255, 0));
+  }
+}
+
+@media (max-width: 767px) {
+  /* Nobody tapped and the astre has gone by: the copy arrives on its own, plainly. The
+     wave is the reward for the gesture, so it is not spent on people who never made it. */
+  .ignite.is-shown .ignite-word {
+    opacity: 1;
+    transition: opacity 550ms ease;
+  }
+
+  /* Pills and link buttons: their outline is drawn by the element, so they cannot ride
+     the wave — they wait it out and settle in behind it. The delay is roughly the wave's
+     own length, so they arrive as the last words finish lighting up. */
+  .settle.is-dark {
+    opacity: 0;
+  }
+
+  .settle.is-lit {
+    animation: settle-in 500ms ease-out 560ms backwards;
+  }
+
+  .settle.is-shown {
+    opacity: 1;
+    transition: opacity 550ms ease;
+  }
+}
+
+@keyframes settle-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.4rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ignite.is-lit .ignite-word,
+  .settle.is-lit {
+    animation: none;
+  }
+  .ignite.is-dark .ignite-word,
+  .settle.is-dark {
+    opacity: 1;
+  }
+  .ignite.is-dark a {
+    text-decoration-color: currentcolor;
   }
 }
 

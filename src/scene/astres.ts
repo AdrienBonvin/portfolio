@@ -42,11 +42,21 @@ const ORDER: AstreKey[] = ['planet', 'blackHole', 'pulsar'];
 const tapped = new Set<AstreKey>();
 export const TAP_EVENT = 'astre:tapped';
 
-export const markTapped = (key: AstreKey) => {
+// Where the finger landed, in viewport pixels. The section copy lights up from this
+// point (Ignite), so the light comes out of the spot that was actually touched rather
+// than from a re-projection of the astre's centre — which would drift, since the camera
+// keeps flying while the reveal plays.
+export type TapDetail = { key: AstreKey; x: number; y: number };
+
+export const markTapped = (key: AstreKey, origin: { x: number; y: number }) => {
   if (tapped.has(key)) return;
   tapped.add(key);
-  window.dispatchEvent(new Event(TAP_EVENT));
+  window.dispatchEvent(new CustomEvent<TapDetail>(TAP_EVENT, { detail: { key, ...origin } }));
 };
+
+// True once this astre has drifted behind the camera: the copy it carries reveals itself
+// at that point for anyone who never tapped, so no content depends on the gesture.
+export const isPast = (key: AstreKey, progress: number) => cameraZ(progress) < ASTRE_DEPTH[key] - 1.5;
 
 // The astre currently going past and still waiting to be touched. Two of them can be
 // in the window at once — the corridor is 14 units per section and the window is 13 —
