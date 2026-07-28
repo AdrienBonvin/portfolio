@@ -7,6 +7,7 @@ import { Ignite, Settle } from './Ignite';
 import { LangToggle } from './LangToggle';
 import { journeyProgress, scrollState } from './scrollState';
 import { useT, LINKS } from './i18n';
+import type { AstreKey } from './scene/astres';
 
 type SectionProps = {
   index: string;
@@ -16,10 +17,13 @@ type SectionProps = {
   // with the copy centred in it — the page ends here, so this is the frame the reader
   // is left looking at, and it must not sit low like a section still being scrolled past.
   final?: boolean;
+  // The astre this section's copy belongs to. Tagged on the title so the affordance chip
+  // can measure how far that title has travelled up the frame before offering itself.
+  astre?: AstreKey;
   children: ReactNode;
 };
 
-const Section = ({ index, title, align = 'left', final, children }: SectionProps) => {
+const Section = ({ index, title, align = 'left', final, astre, children }: SectionProps) => {
   const placement =
     align === 'center' ? 'mx-auto text-center' : align === 'right' ? 'ml-auto' : 'mr-auto';
 
@@ -56,7 +60,9 @@ const Section = ({ index, title, align = 'left', final, children }: SectionProps
               >
                 {index}
               </span>
-              <h2 className="relative mb-4 bg-gradient-to-r from-neon-violet via-white to-neon-cyan bg-clip-text text-5xl font-bold text-transparent drop-shadow-[0_0_30px_rgba(168,85,247,0.5)] md:text-7xl">
+              <h2
+                data-astre={astre}
+                className="relative mb-4 bg-gradient-to-r from-neon-violet via-white to-neon-cyan bg-clip-text text-5xl font-bold text-transparent drop-shadow-[0_0_30px_rgba(168,85,247,0.5)] md:text-7xl">
                 {title}
               </h2>
               <div
@@ -189,7 +195,7 @@ export const App = () => {
           </div>
         </section>
 
-        <Section index="01" title={t.about.title}>
+        <Section index="01" title={t.about.title} astre="planet">
           <p className="text-lg leading-relaxed text-white/85 md:text-xl">
             <Ignite astre="planet">
               {t.about.before}
@@ -204,7 +210,7 @@ export const App = () => {
           </p>
         </Section>
 
-        <Section index="02" title={t.experience.title} align="right">
+        <Section index="02" title={t.experience.title} align="right" astre="blackHole">
           <div className="space-y-8 md:space-y-10">
             {t.experience.entries.map((entry) => (
               <div key={entry.title}>
@@ -225,7 +231,7 @@ export const App = () => {
           </div>
         </Section>
 
-        <Section index="03" title={t.projects.title}>
+        <Section index="03" title={t.projects.title} astre="pulsar">
           <div className="space-y-8 md:space-y-10">
             {t.projects.items.map((project) => (
               <div key={project.title}>

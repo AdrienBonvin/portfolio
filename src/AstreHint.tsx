@@ -10,6 +10,18 @@ const DROP = 84;
 // half out of frame — which is exactly how the previous take on this ended up showing
 // "✦ TAP THE" with the rest of the sentence off-screen.
 const MARGIN = 16;
+// The chip waits for its section's title to have climbed to the middle of the frame before
+// offering itself. Two reasons: the astre is only worth touching once it is properly on
+// screen rather than a speck in the fog, and the invitation should not be the first thing
+// that arrives — the title names the section, then the scene offers the way in.
+const TITLE_GATE = 0.5;
+
+// Whether the title of the section this astre carries has travelled far enough up.
+const titleIsIn = (key: AstreKey) => {
+  const title = document.querySelector<HTMLElement>(`h2[data-astre="${key}"]`);
+  if (!title) return false;
+  return title.getBoundingClientRect().top <= window.innerHeight * TITLE_GATE;
+};
 
 // The three big astres answer to a touch, and a phone has no hover to say so — which is
 // why that whole layer of the scene went unnoticed on mobile.
@@ -29,7 +41,8 @@ export const AstreHint = () => {
 
   useEffect(() => {
     const sync = () => {
-      const next = approaching(journeyProgress());
+      const open = approaching(journeyProgress());
+      const next = open && titleIsIn(open) ? open : null;
       current.current = next;
       setAstre(next);
     };
