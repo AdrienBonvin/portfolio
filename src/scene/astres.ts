@@ -35,6 +35,30 @@ export const ASTRE_DEPTH: Record<AstreKey, number> = {
   pulsar: -43,
 };
 
+// Where each astre sits off the corridor. Here rather than inline in the scene because
+// the DOM affordance has to project the very same point to follow it (hintAnchor below),
+// and two copies of these numbers would drift apart on the first tweak.
+const OFFSET: Record<AstreKey, { portrait: [number, number]; desktop: [number, number] }> = {
+  planet: { portrait: [1.8, 1.8], desktop: [5.5, 2] },
+  blackHole: { portrait: [-1.7, 2.6], desktop: [-8, 4] },
+  pulsar: { portrait: [1.6, 2.3], desktop: [12, 3.5] },
+};
+
+export const astrePosition = (key: AstreKey, portrait: boolean): [number, number, number] => {
+  const [x, y] = portrait ? OFFSET[key].portrait : OFFSET[key].desktop;
+  return [x, y, ASTRE_DEPTH[key]];
+};
+
+// Each astre's projected screen position, in CSS pixels, written every frame by the scene
+// and read by the affordance chip so it can ride along. A plain mutable record rather than
+// React state: this changes every frame, and re-rendering the chip 60 times a second to
+// move it is exactly the cost the rest of this scene is built to avoid.
+export const hintAnchor: Record<AstreKey, { x: number; y: number; behind: boolean }> = {
+  planet: { x: 0, y: 0, behind: true },
+  blackHole: { x: 0, y: 0, behind: true },
+  pulsar: { x: 0, y: 0, behind: true },
+};
+
 const ORDER: AstreKey[] = ['planet', 'blackHole', 'pulsar'];
 
 // Astres answer to a tap once and then they have made their point: the affordance is
@@ -54,9 +78,14 @@ export const markTapped = (key: AstreKey, origin: { x: number; y: number }) => {
   window.dispatchEvent(new CustomEvent<TapDetail>(TAP_EVENT, { detail: { key, ...origin } }));
 };
 
-// True once this astre has drifted behind the camera: the copy it carries reveals itself
-// at that point for anyone who never tapped, so no content depends on the gesture.
-export const isPast = (key: AstreKey, progress: number) => cameraZ(progress) < ASTRE_DEPTH[key] - 1.5;
+// Re-arms the affordance once the astre has gone by, so coming back to a section offers
+// the gesture again rather than a chip that has retired for good.
+export const unmarkTapped = (key: AstreKey) => tapped.delete(key);
+
+// Whether this astre is currently the one going past — the window in which it answers a
+// tap, and therefore the window in which the copy it carries stays lit.
+export const isOpen = (key: AstreKey, progress: number) =>
+  inFlyby(cameraZ(progress) - ASTRE_DEPTH[key]);
 
 // The astre currently going past and still waiting to be touched. Two of them can be
 // in the window at once — the corridor is 14 units per section and the window is 13 —
@@ -66,6 +95,13 @@ export const approaching = (progress: number): AstreKey | null => {
   // positive while the astre is still ahead of the camera. Same window the astre itself
   // uses, so the chip never invites a tap that would not land.
   const open = ORDER.filter((key) => !tapped.has(key) && inFlyby(z - ASTRE_DEPTH[key]));
-  const distance = (key: AstreKey) => Math.abs(z - ASTRE_DEPTH[key]);
-  return open.sort((a, b) => distance(a) - distance(b))[0] ?? null;
+  // An astre you have just flown past still answers a tap for a beat, but it must never
+  // out-rank one that is genuinely coming up: ranking by absolute distance had the chip
+  // still naming the planet, 1.4 units behind, while the black hole filled the frame 8
+  // units ahead. Ahead first, nearest of those, and only then the one just behind.
+  const rank = (key: AstreKey) => {
+    const ahead = z - ASTRE_DEPTH[key];
+    return ahead >= 0 ? ahead : Infinity;
+  };
+  return open.sort((a, b) => rank(a) - rank(b))[0] ?? null;
 };

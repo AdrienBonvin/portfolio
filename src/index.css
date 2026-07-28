@@ -109,13 +109,6 @@ html {
 }
 
 @media (max-width: 767px) {
-  /* Nobody tapped and the astre has gone by: the copy arrives on its own, plainly. The
-     wave is the reward for the gesture, so it is not spent on people who never made it. */
-  .ignite.is-shown .ignite-word {
-    opacity: 1;
-    transition: opacity 550ms ease;
-  }
-
   /* Pills and link buttons: their outline is drawn by the element, so they cannot ride
      the wave — they wait it out and settle in behind it. The delay is roughly the wave's
      own length, so they arrive as the last words finish lighting up. */
@@ -127,10 +120,6 @@ html {
     animation: settle-in 500ms ease-out 560ms backwards;
   }
 
-  .settle.is-shown {
-    opacity: 1;
-    transition: opacity 550ms ease;
-  }
 }
 
 @keyframes settle-in {
@@ -216,35 +205,47 @@ main button {
   }
 }
 
-/* The touch affordance for the astres (AstreHint). Sits above the mini-map, fades in
-   with the astre it names and out again once that astre is behind you. */
+/* The touch affordance for the astres (AstreHint). Rides along under whichever astre is
+   going past — the wrapper carries the position, this carries the look, so the two never
+   fight over the same transform.
+
+   Tilted rather than flat: it reads as a panel planted in the scene next to the astre
+   instead of a caption pasted on the glass. The sway keeps it alive, and turns the panel
+   just enough to catch the eye without ever becoming hard to read. */
 .astre-hint {
   display: inline-flex;
   align-items: center;
   gap: 0.55rem;
-  border: 1px solid rgba(34, 211, 238, 0.3);
+  border: 1px solid rgba(34, 211, 238, 0.45);
   border-radius: 999px;
-  /* nearly solid: it is chrome, and it crosses in front of whatever the scene and the
-     copy happen to be doing down there */
-  background: rgba(5, 5, 16, 0.93);
-  padding: 0.4rem 0.9rem;
-  font-size: 0.625rem;
+  /* nearly solid: it crosses in front of whatever the scene happens to be doing */
+  background: rgba(5, 5, 16, 0.88);
+  padding: 0.45rem 0.95rem;
+  font-size: 0.6875rem;
   font-weight: 700;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
   white-space: nowrap;
   color: #9be7ff;
   text-shadow: 0 0 12px rgba(34, 211, 238, 0.8);
+  box-shadow: 0 0 22px -6px #22d3ee;
   opacity: 0;
-  transform: translateY(0.5rem);
-  transition:
-    opacity 0.5s ease,
-    transform 0.5s ease;
+  transition: opacity 0.45s ease;
 }
 
 .astre-hint.is-in {
   opacity: 1;
-  transform: none;
+  animation: astre-sway 3.4s ease-in-out infinite;
+}
+
+@keyframes astre-sway {
+  0%,
+  100% {
+    transform: perspective(500px) rotateX(9deg) rotateY(-11deg);
+  }
+  50% {
+    transform: perspective(500px) rotateX(7deg) rotateY(-4deg) translateY(-3px);
+  }
 }
 
 /* the dot keeps a pulse on it, so the chip reads as live rather than as a caption */

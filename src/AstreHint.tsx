@@ -1,22 +1,38 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useT } from './i18n';
 import { journeyProgress } from './scrollState';
-import { TAP_EVENT, approaching, type AstreKey } from './scene/astres';
+import { TAP_EVENT, approaching, hintAnchor, type AstreKey } from './scene/astres';
 
-// The three big astres answer to a touch, and a phone has no hover to say so — which
-// is why that whole layer of the scene went unnoticed on mobile. This names whichever
-// one is currently coming up the corridor, and retires it once it has been touched.
+// How far under the astre the chip rides, in pixels. Below rather than centred, so it
+// never covers the thing it is pointing at.
+const DROP = 84;
+// Kept this far from every edge. Anchoring to a world position means the astre can be
+// half out of frame — which is exactly how the previous take on this ended up showing
+// "✦ TAP THE" with the rest of the sentence off-screen.
+const MARGIN = 16;
+
+// The three big astres answer to a touch, and a phone has no hover to say so — which is
+// why that whole layer of the scene went unnoticed on mobile.
 //
-// A DOM chip rather than a label planted in the scene: the astres pass late, well into
-// the next section, so anything anchored to one of them spends half the flyby behind
-// the body copy. Down here it is always legible, and it sits above the mini-map like
-// the piece of chrome it is.
+// The chip rides along with whichever astre is coming up the corridor: the scene projects
+// each astre to screen pixels every frame (TrackHints) and this reads that from its own
+// animation loop, so following the astre costs no React renders. It stays a DOM element
+// outside the canvas rather than an <Html> planted in the scene, for two reasons — it
+// cannot be clipped by the frame, and it keeps full CSS control of the tilt that gives it
+// its relief.
 export const AstreHint = () => {
   const t = useT();
   const [astre, setAstre] = useState<AstreKey | null>(null);
+  const chip = useRef<HTMLDivElement>(null);
+  // read inside the animation loop, which is bound once
+  const current = useRef<AstreKey | null>(null);
 
   useEffect(() => {
-    const sync = () => setAstre(approaching(journeyProgress()));
+    const sync = () => {
+      const next = approaching(journeyProgress());
+      current.current = next;
+      setAstre(next);
+    };
     sync();
     window.addEventListener('scroll', sync, { passive: true });
     window.addEventListener('resize', sync);
@@ -28,19 +44,42 @@ export const AstreHint = () => {
     };
   }, []);
 
+  // Follows the astre. Writes a transform straight to the node every frame instead of
+  // going through state: the anchor moves with the camera, so this runs at 60fps.
+  useEffect(() => {
+    let frame = 0;
+    const follow = () => {
+      frame = requestAnimationFrame(follow);
+      const node = chip.current;
+      const key = current.current;
+      if (!node || !key) return;
+      const anchor = hintAnchor[key];
+      const box = node.getBoundingClientRect();
+      const x = Math.min(
+        Math.max(anchor.x, MARGIN + box.width / 2),
+        window.innerWidth - MARGIN - box.width / 2,
+      );
+      const y = Math.min(
+        Math.max(anchor.y + DROP, MARGIN + box.height / 2),
+        window.innerHeight - MARGIN - box.height / 2,
+      );
+      node.style.transform = `translate3d(${x - box.width / 2}px, ${y - box.height / 2}px, 0)`;
+    };
+    frame = requestAnimationFrame(follow);
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
   // the label survives the astre leaving, so the chip fades out on its own words
   const [label, setLabel] = useState('');
   useEffect(() => {
     if (astre) setLabel(`${t.scene.tap} ${t.scene[astre]}`);
   }, [astre, t]);
 
-  // bottom-11 keeps it inside the mini-map's own fade, where the section copy has
-  // already dissolved into the void — a chip any higher up ends up straddling the next
-  // section's title as it comes on screen
   return (
     <div
+      ref={chip}
       aria-hidden
-      className="pointer-events-none fixed inset-x-0 bottom-11 z-40 flex justify-center px-6 md:hidden"
+      className="pointer-events-none fixed top-0 left-0 z-40 md:hidden"
     >
       <span className={`astre-hint ${astre ? 'is-in' : ''}`}>{label}</span>
     </div>

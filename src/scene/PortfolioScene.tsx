@@ -6,7 +6,14 @@ import * as THREE from 'three';
 import { isTouchDevice, scrollState } from '../scrollState';
 import { useIsMobile } from '../useIsMobile';
 import { LINKS } from '../i18n';
-import { ASTRE_DEPTH, cameraZ, inFlyby, markTapped, type AstreKey } from './astres';
+import {
+  astrePosition,
+  cameraZ,
+  hintAnchor,
+  inFlyby,
+  markTapped,
+  type AstreKey,
+} from './astres';
 
 // Aspect ratio of the window, kept up to date on resize. Drives the responsive
 // layout of the scene: on narrow screens the celestial objects slide toward the
@@ -449,6 +456,30 @@ const AstreHitbox = ({
 // camera tips toward it for a beat and settles back, which is the difference between
 // a tap that plays an effect and a tap that moves the world. It also retires the
 // affordance chip (AstreHint) for that astre, since the point has been made.
+// Projects each astre to screen pixels every frame, for the DOM affordance chip to ride
+// along (AstreHint). Done here because this is the only place the camera lives, and kept
+// out of React state because it changes every frame — hintAnchor is a plain record the
+// chip reads from its own animation loop.
+const TrackHints = ({ portrait }: { portrait: boolean }) => {
+  const camera = useThree((state) => state.camera);
+  const size = useThree((state) => state.size);
+  const point = useMemo(() => new THREE.Vector3(), []);
+
+  useFrame(() => {
+    if (!portrait) return;
+    (['planet', 'blackHole', 'pulsar'] as AstreKey[]).forEach((key) => {
+      point.set(...astrePosition(key, true)).project(camera);
+      const anchor = hintAnchor[key];
+      anchor.x = (point.x * 0.5 + 0.5) * size.width;
+      anchor.y = (-point.y * 0.5 + 0.5) * size.height;
+      // past the far plane in NDC means the astre is behind the camera
+      anchor.behind = point.z > 1;
+    });
+  });
+
+  return null;
+};
+
 const answerTap = (
   key: AstreKey,
   position: [number, number, number],
@@ -1891,6 +1922,7 @@ export const PortfolioScene = () => {
       <pointLight position={[0, 6, 0]} intensity={30} color={NEON.violet} />
 
       <CameraRig />
+      <TrackHints portrait={portrait} />
       {portrait && <FogDrive />}
 
       {/* the wireframe clutter is desktop-only: on a phone it crowds a frame that is
@@ -1910,20 +1942,20 @@ export const PortfolioScene = () => {
           the middle of the corridor, since a phone frame is a third as wide and would
           otherwise never catch them. Depths are shared, so the pacing is identical. */}
       <Planet
-        position={portrait ? [1.8, 1.8, ASTRE_DEPTH.planet] : [5.5, 2, ASTRE_DEPTH.planet]}
+        position={astrePosition('planet', portrait)}
         scale={portrait ? 0.85 : 1}
         mobile={portrait}
       />
       {/* portrait y/x put the camera track inside the accretion disc, so scrolling
           past means passing through it — the same close pass the planet's rings give */}
       <BlackHole
-        position={portrait ? [-1.7, 2.6, ASTRE_DEPTH.blackHole] : [-8, 4, ASTRE_DEPTH.blackHole]}
+        position={astrePosition('blackHole', portrait)}
         scale={portrait ? 0.85 : 1}
         mobile={portrait}
       />
       {/* likewise the remnant shell: the track runs through the ejecta */}
       <Pulsar
-        position={portrait ? [1.6, 2.3, ASTRE_DEPTH.pulsar] : [12, 3.5, -48]}
+        position={astrePosition('pulsar', portrait)}
         // still smaller than its siblings on mobile: it is the only astre that is a
         // light source, and close up a full-size one hazes the frame through the
         // bloom pass, taking the body text's contrast with it
