@@ -29,10 +29,46 @@ export type AstreKey = 'planet' | 'blackHole' | 'pulsar';
 // Depths are shared between desktop and portrait — the portrait staging only pulls the
 // astres sideways, toward the middle of a frame a third as wide, so the pacing of the
 // journey is identical on both.
+// Spacing matters as much as the depths themselves: it is what each astre's approach is
+// made of. At -43 the pulsar sat only 8 units past the black hole against the 15 that
+// separate the first two, so its section had barely half the run-up — the title appeared
+// at 0.765 and the pulsar was already gone by 0.911, where the planet gets 0.267 → 0.500.
+// -46 gives it a comparable approach and still leaves it swept past by the end of the
+// journey, which sits at z -48.
 export const ASTRE_DEPTH: Record<AstreKey, number> = {
   planet: -20,
   blackHole: -35,
-  pulsar: -43,
+  pulsar: -46,
+};
+
+// Where each astre sits off the corridor. Here rather than inline in the scene because
+// the DOM affordance has to project the very same point to follow it (hintAnchor below),
+// and two copies of these numbers would drift apart on the first tweak.
+const OFFSET: Record<AstreKey, { portrait: [number, number]; desktop: [number, number] }> = {
+  planet: { portrait: [1.8, 1.8], desktop: [5.5, 2] },
+  blackHole: { portrait: [-1.7, 2.6], desktop: [-8, 4] },
+  // Nearer the middle of the frame than its siblings: it is the last astre before the
+  // galaxy, and the finale is worth looking straight at. 0.35 rather than the ~1.7 the
+  // others use because this one is passed at close range, and perspective magnifies the
+  // sideways offset as it comes: at 0.8 it still sat three quarters of the way across the
+  // frame when it filled it. Not zero, though — it is the only astre that is a light
+  // source, and dead on the track it would flare the whole frame through the bloom pass.
+  pulsar: { portrait: [0.35, 2], desktop: [12, 3.5] },
+};
+
+export const astrePosition = (key: AstreKey, portrait: boolean): [number, number, number] => {
+  const [x, y] = portrait ? OFFSET[key].portrait : OFFSET[key].desktop;
+  return [x, y, ASTRE_DEPTH[key]];
+};
+
+// Each astre's projected screen position, in CSS pixels, written every frame by the scene
+// and read by the affordance chip so it can ride along. A plain mutable record rather than
+// React state: this changes every frame, and re-rendering the chip 60 times a second to
+// move it is exactly the cost the rest of this scene is built to avoid.
+export const hintAnchor: Record<AstreKey, { x: number; y: number; behind: boolean }> = {
+  planet: { x: 0, y: 0, behind: true },
+  blackHole: { x: 0, y: 0, behind: true },
+  pulsar: { x: 0, y: 0, behind: true },
 };
 
 const ORDER: AstreKey[] = ['planet', 'blackHole', 'pulsar'];
@@ -42,11 +78,26 @@ const ORDER: AstreKey[] = ['planet', 'blackHole', 'pulsar'];
 const tapped = new Set<AstreKey>();
 export const TAP_EVENT = 'astre:tapped';
 
-export const markTapped = (key: AstreKey) => {
+// Where the finger landed, in viewport pixels. The section copy lights up from this
+// point (Ignite), so the light comes out of the spot that was actually touched rather
+// than from a re-projection of the astre's centre — which would drift, since the camera
+// keeps flying while the reveal plays.
+export type TapDetail = { key: AstreKey; x: number; y: number };
+
+export const markTapped = (key: AstreKey, origin: { x: number; y: number }) => {
   if (tapped.has(key)) return;
   tapped.add(key);
-  window.dispatchEvent(new Event(TAP_EVENT));
+  window.dispatchEvent(new CustomEvent<TapDetail>(TAP_EVENT, { detail: { key, ...origin } }));
 };
+
+// Re-arms the affordance once the astre has gone by, so coming back to a section offers
+// the gesture again rather than a chip that has retired for good.
+export const unmarkTapped = (key: AstreKey) => tapped.delete(key);
+
+// Whether this astre is currently the one going past — the window in which it answers a
+// tap, and therefore the window in which the copy it carries stays lit.
+export const isOpen = (key: AstreKey, progress: number) =>
+  inFlyby(cameraZ(progress) - ASTRE_DEPTH[key]);
 
 // The astre currently going past and still waiting to be touched. Two of them can be
 // in the window at once — the corridor is 14 units per section and the window is 13 —
@@ -56,6 +107,13 @@ export const approaching = (progress: number): AstreKey | null => {
   // positive while the astre is still ahead of the camera. Same window the astre itself
   // uses, so the chip never invites a tap that would not land.
   const open = ORDER.filter((key) => !tapped.has(key) && inFlyby(z - ASTRE_DEPTH[key]));
-  const distance = (key: AstreKey) => Math.abs(z - ASTRE_DEPTH[key]);
-  return open.sort((a, b) => distance(a) - distance(b))[0] ?? null;
+  // An astre you have just flown past still answers a tap for a beat, but it must never
+  // out-rank one that is genuinely coming up: ranking by absolute distance had the chip
+  // still naming the planet, 1.4 units behind, while the black hole filled the frame 8
+  // units ahead. Ahead first, nearest of those, and only then the one just behind.
+  const rank = (key: AstreKey) => {
+    const ahead = z - ASTRE_DEPTH[key];
+    return ahead >= 0 ? ahead : Infinity;
+  };
+  return open.sort((a, b) => rank(a) - rank(b))[0] ?? null;
 };

@@ -43,6 +43,124 @@ html {
     0 0 10px rgba(5, 5, 16, 0.9);
 }
 
+/* Mobile only — desktop's frame keeps the copy clear of the astres and needs none of this.
+   Two blurs of 24px and 10px spread the dark thin and far: a haze over the scenery that
+   never builds contrast where it counts, at the edge of a letter. Three short stops
+   instead — 2px for the edge, 5px for the body, 14px for a soft seat — so the darkening
+   lives against the glyph and the scene still reads between the words.
+
+   No stroke here, deliberately: a stroke painted under the fill gives more contrast still,
+   but it thickens every letter by half its width, and that extra weight is what made this
+   look like a different typeface the first time round. */
+@media (max-width: 767px) {
+  .holo-text {
+    text-shadow:
+      0 1px 2px rgba(5, 5, 16, 0.98),
+      0 0 5px rgba(5, 5, 16, 0.92),
+      0 0 14px rgba(5, 5, 16, 0.65);
+  }
+}
+
+/* ── Copy the scene lights up (Ignite) ───────────────────────────────────────
+   Tapping an astre flares it and sends a wave of light across the copy it carries. Each
+   word's delay is its distance to the touch, set inline in JS, so the light travels
+   outward from the finger instead of running left to right.
+
+   Only opacity, transform and filter are animated — those stay on the compositor, which
+   matters with a WebGL canvas already claiming the frame budget.
+
+   Mobile only, and the whole thing has to be: desktop has no legibility problem to solve
+   — its frame is wide enough to keep the copy clear of the astres — and unscoped, the
+   dark state would hide the desktop copy until an astre happened to fly past. The word
+   spans stay in the markup there, they simply carry nothing and do not even become
+   inline-block, so the desktop line breaking is untouched. */
+@media (max-width: 767px) {
+  .ignite-word {
+    display: inline-block;
+  }
+
+  /* an inline-block is an atomic box, so an ancestor link stops drawing its underline
+     through it — only the spaces between words kept it */
+  a .ignite-word {
+    text-decoration: inherit;
+  }
+
+  /* Waiting to be lit. The words are in the DOM and readable by a screen reader; they are
+     simply not painted yet. */
+  .ignite.is-dark .ignite-word {
+    opacity: 0;
+  }
+
+  /* A link's underline is painted by the <a>, not by the words inside it, so it survives
+     its own text going transparent — the About paragraph showed two floating dashes where
+     the YouTube link was. */
+  .ignite.is-dark a {
+    text-decoration-color: transparent;
+  }
+
+  .ignite.is-lit .ignite-word {
+    /* backwards: the word holds the 0% frame through its own delay, so it stays dark until
+       the wave reaches it rather than flashing on and then animating */
+    animation: ignite 700ms cubic-bezier(0.16, 0.84, 0.28, 1) backwards;
+  }
+}
+
+/* The peak sits at 30%: a hard rise into the glow, then a long fall out of it. That is
+   the shape of the astre's own flare (flash damped back to 0 in PortfolioScene), which is
+   what ties the two together — the copy is lit by the flare, not faded in beside it. */
+@keyframes ignite {
+  0% {
+    opacity: 0;
+    transform: translateY(0.3em) scale(0.94);
+    filter: blur(7px) drop-shadow(0 0 0 rgba(155, 231, 255, 0));
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(0) scale(1.02);
+    filter: blur(0) drop-shadow(0 0 14px rgba(155, 231, 255, 0.95));
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+    filter: blur(0) drop-shadow(0 0 0 rgba(155, 231, 255, 0));
+  }
+}
+
+@media (max-width: 767px) {
+  /* Pills and link buttons: their outline is drawn by the element, so they cannot ride
+     the wave — they wait it out and settle in behind it. The delay is roughly the wave's
+     own length, so they arrive as the last words finish lighting up. */
+  .settle.is-dark {
+    opacity: 0;
+  }
+
+  .settle.is-lit {
+    animation: settle-in 500ms ease-out 560ms backwards;
+  }
+
+}
+
+@keyframes settle-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.4rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ignite.is-lit .ignite-word,
+  .settle.is-lit {
+    animation: none;
+  }
+  .ignite.is-dark .ignite-word,
+  .settle.is-dark {
+    opacity: 1;
+  }
+  .ignite.is-dark a {
+    text-decoration-color: currentcolor;
+  }
+}
+
 /* no I-beam on the floating texts — the neon dot cursor does the job */
 main,
 main * {
@@ -76,59 +194,6 @@ main button {
   -webkit-text-stroke: 1.5px rgba(168, 85, 247, 0.3);
 }
 
-/* ── Word-by-word reveal ─────────────────────────────────────────────────── */
-
-/* Each word arrives on its own, a beat after the one before it, so a paragraph
-   condenses out of the void instead of a rectangle fading in. Only transform and
-   opacity are animated per word — those stay on the compositor, which matters with
-   a WebGL canvas already claiming the frame budget. The single blur is on the
-   container: one layer for the whole block rather than one per word. */
-.reveal-word {
-  display: inline-block;
-}
-
-/* an inline-block is an atomic box, so the ancestor link stops drawing its underline
-   through it — only the spaces between words kept it. Forcing the inheritance puts
-   the line back under a link split into words. */
-a .reveal-word {
-  text-decoration: inherit;
-}
-
-/* `revealed` is only ever false once the IntersectionObserver has confirmed the
-   block is off screen; without an observer it starts true, so the text is never
-   hidden by a feature that failed to load */
-.reveal:not(.is-in) .reveal-word {
-  opacity: 0;
-  transform: translateY(0.5em);
-}
-
-.reveal.is-in {
-  animation: haze-in 0.75s ease-out backwards;
-}
-
-.reveal.is-in .reveal-word {
-  animation: word-in 0.62s cubic-bezier(0.2, 0.7, 0.25, 1) backwards;
-  /* capped: past ~30 words the tail would otherwise still be arriving long after
-     the reader got there */
-  animation-delay: min(var(--i) * 26ms, 0.8s);
-}
-
-@keyframes word-in {
-  from {
-    opacity: 0;
-    transform: translateY(0.5em);
-  }
-}
-
-@keyframes haze-in {
-  from {
-    filter: blur(7px);
-  }
-  to {
-    filter: blur(0);
-  }
-}
-
 /* ── Mobile chrome ───────────────────────────────────────────────────────── */
 
 /* Sits under the hero type only. The scene's fog already keeps the astres back at
@@ -144,44 +209,61 @@ a .reveal-word {
        fixed canvas */
     z-index: -1;
     pointer-events: none;
+    /* Barely there. HERO_FOG_FAR already holds the planet back, so this only has to take
+       the edge off whatever bright thing drifts behind the words. Kept very low on
+       purpose: the starfield is faint to begin with, and even a 50% black wash over it
+       erased the stars along with the planet — which is how the first screen ended up
+       reading as a black rectangle. */
     background: radial-gradient(
-      58% 42% at 50% 46%,
-      rgba(5, 5, 16, 0.88) 0%,
-      rgba(5, 5, 16, 0.66) 45%,
-      transparent 78%
+      46% 34% at 50% 46%,
+      rgba(5, 5, 16, 0.28) 0%,
+      rgba(5, 5, 16, 0.12) 45%,
+      transparent 70%
     );
   }
 }
 
-/* The touch affordance for the astres (AstreHint). Sits above the mini-map, fades in
-   with the astre it names and out again once that astre is behind you. */
+/* The touch affordance for the astres (AstreHint). Rides along under whichever astre is
+   going past — the wrapper carries the position, this carries the look, so the two never
+   fight over the same transform.
+
+   Tilted rather than flat: it reads as a panel planted in the scene next to the astre
+   instead of a caption pasted on the glass. The sway keeps it alive, and turns the panel
+   just enough to catch the eye without ever becoming hard to read. */
 .astre-hint {
   display: inline-flex;
   align-items: center;
   gap: 0.55rem;
-  border: 1px solid rgba(34, 211, 238, 0.3);
+  border: 1px solid rgba(34, 211, 238, 0.45);
   border-radius: 999px;
-  /* nearly solid: it is chrome, and it crosses in front of whatever the scene and the
-     copy happen to be doing down there */
-  background: rgba(5, 5, 16, 0.93);
-  padding: 0.4rem 0.9rem;
-  font-size: 0.625rem;
+  /* nearly solid: it crosses in front of whatever the scene happens to be doing */
+  background: rgba(5, 5, 16, 0.88);
+  padding: 0.45rem 0.95rem;
+  font-size: 0.6875rem;
   font-weight: 700;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
   white-space: nowrap;
   color: #9be7ff;
   text-shadow: 0 0 12px rgba(34, 211, 238, 0.8);
+  box-shadow: 0 0 22px -6px #22d3ee;
   opacity: 0;
-  transform: translateY(0.5rem);
-  transition:
-    opacity 0.5s ease,
-    transform 0.5s ease;
+  transition: opacity 0.45s ease;
 }
 
 .astre-hint.is-in {
   opacity: 1;
-  transform: none;
+  animation: astre-sway 3.4s ease-in-out infinite;
+}
+
+@keyframes astre-sway {
+  0%,
+  100% {
+    transform: perspective(500px) rotateX(9deg) rotateY(-11deg);
+  }
+  50% {
+    transform: perspective(500px) rotateX(7deg) rotateY(-4deg) translateY(-3px);
+  }
 }
 
 /* the dot keeps a pulse on it, so the chip reads as live rather than as a caption */
@@ -207,112 +289,3 @@ a .reveal-word {
   }
 }
 
-/* ── Mobile section bodies ───────────────────────────────────────────────── */
-
-/* On mobile the body text is ordinary page content laid over the 3D scene, so it
-   carries its own contrast. A scrim rather than a card: the darkening fades out on
-   every side, so the text keeps its legibility without drawing a frame around
-   itself. Gradients rather than backdrop-filter — the canvas repaints every frame,
-   and a blurred backdrop this large would repaint with it. Desktop keeps the bare
-   floating text, hence the media query rather than a utility class. */
-@media (max-width: 767px) {
-  /* Numbered eyebrow standing in for the desktop ghost number, tinted by the astre
-     the section is staged against. The trailing rule is what the desktop layout put
-     under the title — one line carrying both means the copy starts a third of a
-     screen higher. */
-  .section-index {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    margin-bottom: 0.85rem;
-    color: rgb(var(--accent));
-    text-shadow: 0 0 14px rgb(var(--accent) / 0.65);
-  }
-
-  .section-index::after {
-    content: '';
-    flex: 0 0 2.75rem;
-    height: 1px;
-    background: linear-gradient(to right, rgb(var(--accent) / 0.85), transparent);
-  }
-
-  /* Solid white rather than the desktop violet→white→cyan gradient: at 2.6rem the
-     gradient's midpoint eats most of the word and the ends turn muddy. The accent
-     comes back as the glow and the eyebrow, so the section keeps its colour without
-     spending it on the legibility of its own title. */
-  .section-title {
-    text-wrap: balance;
-    filter: drop-shadow(0 0 22px rgb(var(--accent) / 0.45));
-  }
-
-  .section-panel {
-    position: relative;
-    padding: 0.5rem 0.25rem 1.25rem;
-  }
-
-  .section-panel::before,
-  .section-panel::after {
-    content: '';
-    position: absolute;
-    /* bled well past the text: the falloff needs room, otherwise it reads as an
-       edge again — just a blurrier one */
-    inset: -3rem -2.25rem -3.5rem;
-    /* negative depth inside main's own stacking context, so this sits under the
-       copy but still over the fixed canvas */
-    z-index: -1;
-    pointer-events: none;
-  }
-
-  /* Absolute lengths rather than percentages for the falloff: the experience panel
-     is several screens tall and the about panel a few lines, and a percentage-based
-     gradient would fade over 300px on one and 20px on the other. The mask does the
-     same job on the horizontal axis — together they leave a dark field under the
-     copy that dissolves on all four sides. */
-  .section-panel::before {
-    background: linear-gradient(
-      to bottom,
-      rgba(5, 5, 16, 0) 0,
-      rgba(5, 5, 16, 0.92) 3rem,
-      rgba(5, 5, 16, 0.92) calc(100% - 3.5rem),
-      rgba(5, 5, 16, 0) 100%
-    );
-    mask-image: linear-gradient(
-      to right,
-      transparent 0,
-      black 2rem,
-      black calc(100% - 2rem),
-      transparent 100%
-    );
-  }
-
-  /* light leak in the astre's own color, entering from the side it stands on: the
-     text reads as lit by the scene rather than pasted over it */
-  .section-panel::after {
-    background: radial-gradient(
-      65% 45% at var(--leak-x, 50%) 0%,
-      rgb(var(--accent) / 0.22) 0%,
-      rgb(var(--accent) / 0.07) 45%,
-      transparent 75%
-    );
-  }
-
-  /* body copy is a notch smaller here than on desktop, so it wants a looser
-     rhythm. Done in CSS rather than a leading-* utility: those have no breakpoint
-     scoping in the markup and would move desktop line-heights with them. */
-  .section-panel p {
-    line-height: 1.7;
-    /* no orphan hanging off the end of a paragraph on a 40-character measure */
-    text-wrap: pretty;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .reveal.is-in,
-  .reveal.is-in .reveal-word {
-    animation: none;
-  }
-  .reveal:not(.is-in) .reveal-word {
-    opacity: 1;
-    transform: none;
-  }
-}

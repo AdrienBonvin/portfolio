@@ -6,7 +6,14 @@ import * as THREE from 'three';
 import { isTouchDevice, scrollState } from '../scrollState';
 import { useIsMobile } from '../useIsMobile';
 import { LINKS } from '../i18n';
-import { ASTRE_DEPTH, cameraZ, inFlyby, markTapped, type AstreKey } from './astres';
+import {
+  astrePosition,
+  cameraZ,
+  hintAnchor,
+  inFlyby,
+  markTapped,
+  type AstreKey,
+} from './astres';
 
 // Aspect ratio of the window, kept up to date on resize. Drives the responsive
 // layout of the scene: on narrow screens the celestial objects slide toward the
@@ -37,12 +44,14 @@ const useAspect = () => {
 const FOG_NEAR = 8;
 const FOG_FAR = 42;
 
-// Portrait only: at the hero the corridor is closed off a few units past the camera,
-// so the astres are still out there in the dark rather than hanging behind the title
-// on a frame a third as wide as a desktop one. It opens back up to FOG_FAR over the
-// first third of the journey, so each astre materialises out of the void as you scroll
-// toward it — which is a better entrance than being visible from the first frame.
-const HERO_FOG_FAR = 19;
+// Portrait only: at the hero the corridor is closed off short of the first astre, so the
+// planet is still out there in the dark rather than hanging behind the title on a frame a
+// third as wide as a desktop one. Set just under its 28-unit distance rather than well
+// under it: that hides the planet, which is the only thing that ever fought the type,
+// while the grid, the asteroids and the near starfield stay in frame. It opens back up to
+// FOG_FAR over the first third of the journey, so each astre still materialises out of
+// the void as you scroll toward it.
+const HERO_FOG_FAR = 26;
 
 // One shared vector, so the drive below reaches every grain shader at once — three
 // only injects its fog chunks into built-in materials, and a raw ShaderMaterial is
@@ -415,7 +424,7 @@ const AstreHitbox = ({
   live: boolean;
   focus: [number, number, number];
   onHover: (hovered: boolean) => void;
-  onTap: () => void;
+  onTap: (origin: { x: number; y: number }) => void;
 }) => (
   <mesh
     scale={live ? 1 : 0.0001}
@@ -430,7 +439,8 @@ const AstreHitbox = ({
     }}
     onClick={(e) => {
       e.stopPropagation();
-      onTap();
+      // the tap point in viewport pixels: the section copy lights up from here
+      onTap({ x: e.clientX, y: e.clientY });
     }}
   >
     <sphereGeometry args={[radius, 16, 16]} />
@@ -446,8 +456,36 @@ const AstreHitbox = ({
 // camera tips toward it for a beat and settles back, which is the difference between
 // a tap that plays an effect and a tap that moves the world. It also retires the
 // affordance chip (AstreHint) for that astre, since the point has been made.
-const answerTap = (key: AstreKey, position: [number, number, number]) => {
-  markTapped(key);
+// Projects each astre to screen pixels every frame, for the DOM affordance chip to ride
+// along (AstreHint). Done here because this is the only place the camera lives, and kept
+// out of React state because it changes every frame — hintAnchor is a plain record the
+// chip reads from its own animation loop.
+const TrackHints = ({ portrait }: { portrait: boolean }) => {
+  const camera = useThree((state) => state.camera);
+  const size = useThree((state) => state.size);
+  const point = useMemo(() => new THREE.Vector3(), []);
+
+  useFrame(() => {
+    if (!portrait) return;
+    (['planet', 'blackHole', 'pulsar'] as AstreKey[]).forEach((key) => {
+      point.set(...astrePosition(key, true)).project(camera);
+      const anchor = hintAnchor[key];
+      anchor.x = (point.x * 0.5 + 0.5) * size.width;
+      anchor.y = (-point.y * 0.5 + 0.5) * size.height;
+      // past the far plane in NDC means the astre is behind the camera
+      anchor.behind = point.z > 1;
+    });
+  });
+
+  return null;
+};
+
+const answerTap = (
+  key: AstreKey,
+  position: [number, number, number],
+  origin: { x: number; y: number },
+) => {
+  markTapped(key, origin);
   if (!isTouchDevice()) return;
   navigator.vibrate?.(12);
   focusState.target = new THREE.Vector3(...position);
@@ -776,12 +814,12 @@ const Planet = ({ position, scale = 1, mobile }: CelestialProps) => {
     }
   });
 
-  const detonate = () => {
+  const detonate = (origin: { x: number; y: number }) => {
     shock.current = 0;
     flash.current = 1;
     ringBoost.current += 9;
     moonBoost.current += 6;
-    answerTap('planet', position);
+    answerTap('planet', position, origin);
   };
 
   return (
@@ -1055,11 +1093,11 @@ const BlackHole = ({ position, scale = 1, mobile }: CelestialProps) => {
     if (lens.current) lens.current.uniforms.uIntensity.value = 0.7 + flare.current * 3;
   });
 
-  const detonate = () => {
+  const detonate = (origin: { x: number; y: number }) => {
     collapse.current = 0;
     flare.current = 1;
     discBoost.current += 7;
-    answerTap('blackHole', position);
+    answerTap('blackHole', position, origin);
   };
 
   return (
@@ -1143,10 +1181,15 @@ const BlackHole = ({ position, scale = 1, mobile }: CelestialProps) => {
 // cones and rings, and it is the only astre in the scene with a rhythm — the
 // others turn, this one beats.
 
-const BEAM_LENGTH = 7;
-const BEAM_RADIUS = 1.3;
+// Long and narrow rather than short and wide: a searing shaft carries further across the
+// frame and keeps its shape when the camera is close, where a fat cone just becomes a haze.
+const BEAM_LENGTH = 11;
+const BEAM_RADIUS = 1;
 const MAGNETIC_TILT = 0.55; // offset from the spin axis, which is what makes it sweep
-const PULSE_RINGS = 3;
+const PULSE_RINGS = 5;
+// How sharply the beam has to be pointing at you to blind you. High, so the sweep lands as
+// a strike rather than a gradual brightening — this is the whole lighthouse effect.
+const SWEEP_FOCUS = 9;
 
 // A hollow open cone, lit at the silhouette. Seen edge-on the walls pile up and
 // the shaft reads as volume, which a flat triangle of colour never does.
@@ -1187,6 +1230,9 @@ const BEAM_FRAG = /* glsl */ `
 const Pulsar = ({ position, scale = 1, mobile }: CelestialProps) => {
   const root = useRef<THREE.Group>(null);
   const spin = useRef<THREE.Group>(null);
+  // the tilted group the beams live in: its local +Y is the magnetic axis, and where that
+  // axis is pointing relative to the viewer is what the sweep is made of
+  const axis = useRef<THREE.Group>(null);
   const core = useRef<THREE.Mesh>(null);
   const coreMaterial = useRef<THREE.MeshBasicMaterial>(null);
   const corona = useRef<THREE.ShaderMaterial>(null);
@@ -1195,6 +1241,8 @@ const Pulsar = ({ position, scale = 1, mobile }: CelestialProps) => {
   const ringMaterials = useRef<(THREE.MeshBasicMaterial | null)[]>([]);
   const burst = useRef<THREE.Mesh>(null);
   const burstMaterial = useRef<THREE.MeshBasicMaterial>(null);
+  const wake = useRef<THREE.Mesh>(null);
+  const wakeMaterial = useRef<THREE.MeshBasicMaterial>(null);
   const spinBoost = useRef(0);
   const flash = useRef(0);
   // -1 = idle, otherwise the progress of the click's shockwave
@@ -1227,57 +1275,115 @@ const Pulsar = ({ position, scale = 1, mobile }: CelestialProps) => {
     [mobile],
   );
 
-  useFrame(({ clock }, delta) => {
+  // scratch vectors, so the sweep costs no allocation per frame
+  const beamAxis = useMemo(() => new THREE.Vector3(), []);
+  const toViewer = useMemo(() => new THREE.Vector3(), []);
+
+  useFrame(({ clock, camera }, delta) => {
     const time = clock.elapsedTime;
     spinBoost.current = THREE.MathUtils.damp(spinBoost.current, 0, 1.3, delta);
     flash.current = THREE.MathUtils.damp(flash.current, 0, 2.6, delta);
-    if (spin.current) spin.current.rotation.y += delta * (0.9 + spinBoost.current);
+    if (spin.current) spin.current.rotation.y += delta * (1.15 + spinBoost.current);
+
+    // Bows out over the last stretch of the journey. Its own visibility test only asks
+    // whether the star is too far away, so once the camera had gone past it the star kept
+    // beating behind you — and with an 11-unit beam and additive blending, "behind you"
+    // still reaches into the frame. At the end of the scroll the destination is the galaxy,
+    // and the pulsar has no business still flashing over the closing screen.
+    const bowOut = 1 - THREE.MathUtils.smoothstep(scrollState.progress, 0.9, 0.99);
+    if (root.current) root.current.visible = flyby.shown && bowOut > 0.01;
 
     // the beat: a sharp crest once per turn rather than a gentle sine, so it
     // reads as a pulse and not as breathing
     const beat = Math.abs(Math.sin(time * 1.6)) ** 6;
 
-    if (core.current) core.current.scale.setScalar(1 + beat * 0.25 + flash.current * 0.8);
-    if (coreMaterial.current) coreMaterial.current.opacity = Math.min(1, 0.85 + flash.current);
+    // The lighthouse. The beams already swept — but only their brightness was animated, on
+    // a timer that had nothing to do with where they were pointing, so the one moment that
+    // makes a pulsar a pulsar never happened: the strike as the shaft comes round onto you.
+    // This reads the magnetic axis out of the tilted group's world matrix (its local +Y,
+    // the 2nd column) and measures it against the direction of the camera. Absolute value
+    // because the star fires both ways, and a high power so the flare is a strike and not a
+    // swell.
+    let sweep = 0;
+    if (axis.current) {
+      const m = axis.current.matrixWorld.elements;
+      beamAxis.set(m[4], m[5], m[6]).normalize();
+      toViewer
+        .set(
+          camera.position.x - position[0],
+          camera.position.y - position[1],
+          camera.position.z - position[2],
+        )
+        .normalize();
+      sweep = Math.abs(beamAxis.dot(toViewer)) ** SWEEP_FOCUS;
+    }
+
+    // every output is scaled by bowOut, so the star dims away rather than being switched off
+    if (core.current) {
+      core.current.scale.setScalar(1 + beat * 0.25 + sweep * 0.5 + flash.current * 0.9);
+    }
+    if (coreMaterial.current) {
+      coreMaterial.current.opacity = Math.min(1, 0.85 + flash.current) * bowOut;
+    }
     if (corona.current) {
-      corona.current.uniforms.uIntensity.value = 1.2 + beat * 1.4 + flash.current * 4;
+      corona.current.uniforms.uIntensity.value =
+        (1.2 + beat * 1.4 + sweep * 2.6 + flash.current * 4.5) * bowOut;
     }
     if (beamMaterial.current) {
-      beamMaterial.current.uniforms.uIntensity.value = 0.55 + beat * 0.7 + flash.current * 3;
+      // the shaft itself is dimmer than before between sweeps and far brighter through one:
+      // the average luminance barely moves, the drama is all in the contrast
+      beamMaterial.current.uniforms.uIntensity.value =
+        (0.4 + beat * 0.6 + sweep * 2.2 + flash.current * 3.5) * bowOut;
     }
 
     // radio pulses leaving the star, staggered so one is always on its way out
     rings.current.forEach((ring, i) => {
       const material = ringMaterials.current[i];
       if (!ring || !material) return;
-      const t = (time * 0.38 + i / PULSE_RINGS) % 1;
-      ring.scale.setScalar(0.6 + t * 7);
-      material.opacity = (1 - t) ** 2 * 0.55;
+      const t = (time * 0.5 + i / PULSE_RINGS) % 1;
+      ring.scale.setScalar(0.6 + t * 9);
+      material.opacity = (1 - t) ** 2 * 0.5 * bowOut;
     });
 
     if (shock.current >= 0) {
-      shock.current += delta / 1.1;
+      shock.current += delta / 1.3;
       if (shock.current > 1) shock.current = -1;
     }
+    // Two fronts from one tap, not one: a hard white ring that outruns everything, and a
+    // slower cyan one behind it. One expanding circle reads as a ripple; two at different
+    // speeds read as something that detonated.
     if (burst.current && burstMaterial.current) {
       const t = shock.current;
       burst.current.visible = t >= 0;
       if (t >= 0) {
-        burst.current.scale.setScalar(0.8 + t * 13);
-        burstMaterial.current.opacity = Math.max(0, 1 - t) ** 1.8;
+        burst.current.scale.setScalar(0.8 + t * 20);
+        burstMaterial.current.opacity = Math.max(0, 1 - t) ** 1.6;
+      }
+    }
+    if (wake.current && wakeMaterial.current) {
+      // starts a beat late and travels two thirds as far, so it is still on its way out
+      // when the first front has gone
+      const t = shock.current >= 0 ? Math.max(0, shock.current - 0.12) / 0.88 : -1;
+      wake.current.visible = t >= 0;
+      if (t >= 0) {
+        wake.current.scale.setScalar(0.6 + t * 13);
+        wakeMaterial.current.opacity = Math.max(0, 1 - t) ** 2 * 0.8;
       }
     }
   });
 
-  const detonate = () => {
+  const detonate = (origin: { x: number; y: number }) => {
     shock.current = 0;
     flash.current = 1;
     spinBoost.current += 9;
-    answerTap('pulsar', position);
+    answerTap('pulsar', position, origin);
   };
 
+  // No `visible` prop on the group: useFrame owns it, since it folds flyby.shown together
+  // with the bow-out at the end of the journey. Both writing it would have React reset the
+  // group on every re-render.
   return (
-    <group ref={root} position={position} scale={scale} visible={flyby.shown}>
+    <group ref={root} position={position} scale={scale}>
       {/* invisible hitbox: keeps the hover alive while the camera leans in */}
       <AstreHitbox
         radius={2.6}
@@ -1313,7 +1419,7 @@ const Pulsar = ({ position, scale = 1, mobile }: CelestialProps) => {
       <group ref={spin}>
         {/* the magnetic axis is offset from the spin axis — that offset is the
             whole trick, it is what sweeps the beams around like a lighthouse */}
-        <group rotation={[0, 0, MAGNETIC_TILT]}>
+        <group ref={axis} rotation={[0, 0, MAGNETIC_TILT]}>
           <mesh geometry={beamGeometry}>
             <shaderMaterial
               ref={beamMaterial}
@@ -1370,6 +1476,20 @@ const Pulsar = ({ position, scale = 1, mobile }: CelestialProps) => {
         <meshBasicMaterial
           ref={burstMaterial}
           color="#ffffff"
+          transparent
+          opacity={0}
+          side={THREE.DoubleSide}
+          depthWrite={false}
+          toneMapped={false}
+          blending={THREE.AdditiveBlending}
+        />
+      </mesh>
+      {/* and the slower front behind it, thicker and cyan, so the tap has a wake */}
+      <mesh ref={wake} visible={false} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.7, 1, 128]} />
+        <meshBasicMaterial
+          ref={wakeMaterial}
+          color="#67e8f9"
           transparent
           opacity={0}
           side={THREE.DoubleSide}
@@ -1884,6 +2004,7 @@ export const PortfolioScene = () => {
       <pointLight position={[0, 6, 0]} intensity={30} color={NEON.violet} />
 
       <CameraRig />
+      <TrackHints portrait={portrait} />
       {portrait && <FogDrive />}
 
       {/* the wireframe clutter is desktop-only: on a phone it crowds a frame that is
@@ -1903,20 +2024,20 @@ export const PortfolioScene = () => {
           the middle of the corridor, since a phone frame is a third as wide and would
           otherwise never catch them. Depths are shared, so the pacing is identical. */}
       <Planet
-        position={portrait ? [1.8, 1.8, ASTRE_DEPTH.planet] : [5.5, 2, ASTRE_DEPTH.planet]}
+        position={astrePosition('planet', portrait)}
         scale={portrait ? 0.85 : 1}
         mobile={portrait}
       />
       {/* portrait y/x put the camera track inside the accretion disc, so scrolling
           past means passing through it — the same close pass the planet's rings give */}
       <BlackHole
-        position={portrait ? [-1.7, 2.6, ASTRE_DEPTH.blackHole] : [-8, 4, ASTRE_DEPTH.blackHole]}
+        position={astrePosition('blackHole', portrait)}
         scale={portrait ? 0.85 : 1}
         mobile={portrait}
       />
       {/* likewise the remnant shell: the track runs through the ejecta */}
       <Pulsar
-        position={portrait ? [1.6, 2.3, ASTRE_DEPTH.pulsar] : [12, 3.5, -48]}
+        position={astrePosition('pulsar', portrait)}
         // still smaller than its siblings on mobile: it is the only astre that is a
         // light source, and close up a full-size one hazes the frame through the
         // bloom pass, taking the body text's contrast with it

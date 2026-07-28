@@ -1,177 +1,94 @@
-import {
-  Fragment,
-  cloneElement,
-  isValidElement,
-  useEffect,
-  useRef,
-  useState,
-  type CSSProperties,
-  type ReactElement,
-  type ReactNode,
-} from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { PortfolioScene } from './scene/PortfolioScene';
 import { CursorGlow } from './CursorGlow';
 import { MiniMap } from './MiniMap';
 import { AstreHint } from './AstreHint';
+import { Ignite, Settle } from './Ignite';
 import { LangToggle } from './LangToggle';
 import { journeyProgress, scrollState } from './scrollState';
 import { useT, LINKS } from './i18n';
+import type { AstreKey } from './scene/astres';
 
 type SectionProps = {
   index: string;
   title: string;
   align?: 'left' | 'right' | 'center';
-  // mobile: the title and its copy read as one block at the top of the section, and
-  // the empty scroll that follows is where the section's astre gets the frame to
-  // itself. The showcase is the silence after the text, not a screen of its own.
-  showcase?: boolean;
-  // The astre standing behind this section: its color tints the scrim's light leak,
-  // and `leak` says which side of the frame that light comes from. Hard-coded rather
-  // than projected from the scene each frame — the astres sit at fixed world
-  // positions (PortfolioScene), so the side never changes.
-  accent?: keyof typeof ACCENTS;
-  leak?: keyof typeof LEAK_X;
+  // The journey's destination. On mobile it gets a screen of its own after the approach,
+  // with the copy centred in it — the page ends here, so this is the frame the reader
+  // is left looking at, and it must not sit low like a section still being scrolled past.
+  final?: boolean;
+  // The astre this section's copy belongs to. Tagged on the title so the affordance chip
+  // can measure how far that title has travelled up the frame before offering itself.
+  astre?: AstreKey;
+  // Shortens the approach. Only the first section wants this: the reader has just left the
+  // hero and has no reason yet to trust that scrolling leads anywhere, so making them cross
+  // a whole empty screen before the first title is the one place the pause costs more than
+  // it buys. Every later approach has an astre flying by to fill it.
+  approach?: 'full' | 'short';
   children: ReactNode;
-};
-
-// rgb triples, so the CSS can pick its own alpha per layer
-const ACCENTS = {
-  violet: '168 85 247',
-  cyan: '34 211 238',
-  pink: '244 114 182',
-};
-
-const LEAK_X = { left: '12%', center: '50%', right: '88%' };
-
-// Fades a body panel in as it enters the viewport. Falls back to "already
-// revealed" when IntersectionObserver is missing: the text must never depend on
-// the observer to be readable.
-const useRevealed = () => {
-  const ref = useRef<HTMLDivElement>(null);
-  const [revealed, setRevealed] = useState(() => typeof IntersectionObserver === 'undefined');
-
-  useEffect(() => {
-    const node = ref.current;
-    if (!node || revealed) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (!entry.isIntersecting) return;
-        setRevealed(true);
-        observer.disconnect();
-      },
-      // fires once the panel is properly on screen, not the instant it pokes in
-      { rootMargin: '0px 0px -12% 0px' },
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [revealed]);
-
-  return { ref, revealed };
-};
-
-// Wraps every word of a subtree in its own span, numbered in reading order, so the
-// CSS can stagger them. Recursive: the body copy mixes bare strings with elements
-// (links, headings, pills), and a splitter that only handled top-level strings would
-// drop the words on either side of a link out of the sequence.
-const splitWords = (node: ReactNode, counter: { n: number }): ReactNode => {
-  if (typeof node === 'string') {
-    // keeping the whitespace chunks as plain text nodes is what lets the line still
-    // break normally between two inline-block words
-    return node.split(/(\s+)/).map((chunk, i) =>
-      chunk.trim() === '' ? (
-        chunk
-      ) : (
-        <span key={i} className="reveal-word" style={{ '--i': counter.n++ } as CSSProperties}>
-          {chunk}
-        </span>
-      ),
-    );
-  }
-  if (Array.isArray(node)) {
-    return node.map((child, i) => <Fragment key={i}>{splitWords(child, counter)}</Fragment>);
-  }
-  if (isValidElement(node)) {
-    const element = node as ReactElement<{ children?: ReactNode }>;
-    if (element.props.children == null) return node;
-    return cloneElement(element, undefined, splitWords(element.props.children, counter));
-  }
-  return node;
-};
-
-// One reveal unit: its words condense out of the void when it reaches the viewport.
-// Use one per block that should animate on its own — each experience entry gets its
-// own, so the stagger restarts with it instead of running off the end of the section.
-const Reveal = ({ children, className = '' }: { children: ReactNode; className?: string }) => {
-  const { ref, revealed } = useRevealed();
-  return (
-    <div ref={ref} className={`reveal ${revealed ? 'is-in' : ''} ${className}`}>
-      {splitWords(children, { n: 0 })}
-    </div>
-  );
 };
 
 const Section = ({
   index,
   title,
   align = 'left',
-  showcase,
-  accent = 'violet',
-  leak = 'center',
+  final,
+  astre,
+  approach = 'full',
   children,
 }: SectionProps) => {
   const placement =
     align === 'center' ? 'mx-auto text-center' : align === 'right' ? 'ml-auto' : 'mr-auto';
 
   return (
-    // svh: sized to the small viewport so the collapsing mobile URL bar never shifts the
-    // layout. Mobile stacks from a fixed offset off the top rather than centering: every
-    // section then opens at the same height, which reads as a rhythm instead of the text
-    // floating at a different place each time.
+    // svh: sized to the small viewport so the collapsing mobile URL bar never shifts the layout
     <section
-      className="flex min-h-svh flex-col px-5 pt-[13svh] pb-[6svh] md:min-h-screen md:flex-row md:items-center md:px-12 md:py-24"
-      style={{ '--accent': ACCENTS[accent], '--leak-x': LEAK_X[leak] } as CSSProperties}
+      className={`flex min-h-svh items-center px-6 md:min-h-screen md:px-12 md:py-24 ${
+        // no bottom padding on the last one: it is what centres the closing screen
+        final ? 'pt-24 pb-0' : 'py-24'
+      }`}
     >
       {/* max-w-6xl keeps content near the center on ultrawide screens */}
       <div className="mx-auto w-full max-w-6xl">
         {/* pointer-events: none on mobile so taps reach the 3D objects behind the text
-            — only the body panel's links re-enable them */}
+            — only the body's own links re-enable them (index.css) */}
         <div className={`pointer-events-none w-full max-w-2xl md:pointer-events-auto ${placement}`}>
-          <div className="relative">
-            <span
-              aria-hidden
-              className="ghost-number absolute -top-28 -left-2 hidden text-[13rem] font-bold select-none md:block"
-            >
-              {index}
-            </span>
-            {/* mobile: the giant ghost number needed a screen of its own to breathe.
-                A numbered eyebrow in the astre's own colour says the same in one line,
-                and gives each section a colour identity on the way past. */}
-            <span
-              aria-hidden
-              className={`section-index text-[0.6875rem] font-bold tracking-[0.45em] md:hidden ${
-                align === 'center' ? 'justify-center' : ''
-              }`}
-            >
-              {index}
-            </span>
-            <h2 className="section-title relative mb-5 text-[2.6rem] leading-[1.05] font-bold tracking-[-0.02em] text-white md:mb-4 md:bg-gradient-to-r md:from-neon-violet md:via-white md:to-neon-cyan md:bg-clip-text md:text-7xl md:leading-none md:tracking-normal md:text-transparent md:drop-shadow-[0_0_30px_rgba(168,85,247,0.5)]">
-              {title}
-            </h2>
-            {/* desktop-only: on mobile the eyebrow already carries the accent rule, and
-                two of them stacked was half the empty space between title and copy */}
+          {/* mobile: a screen of empty scroll before the title. It is the approach to the
+              section — and, since it sits where the previous section's astre finishes its
+              flyby, it is what keeps the type out of the frame until that astre has gone
+              past. Depths in scene/astres.ts are tuned against these offsets.
+
+              Not on the last one: journeyProgress pins at 1 from the top of the final
+              section, so every pixel after that point is scroll with the scene frozen on
+              the galaxy. Giving the arrival an approach as well would mean a whole screen
+              of that — the galaxy has to land as the page ends, not a screen earlier. */}
+          {!final && (
             <div
-              className={`mb-10 hidden h-px w-44 bg-gradient-to-r from-neon-cyan to-transparent shadow-[0_0_12px_#22d3ee] md:block ${align === 'center' ? 'mx-auto' : ''}`}
+              aria-hidden
+              className={`md:hidden ${approach === 'short' ? 'h-[62svh]' : 'h-svh'}`}
             />
+          )}
+          <div
+            className={final ? 'flex min-h-svh flex-col justify-center md:block md:min-h-0' : ''}
+          >
+            <div className="relative">
+              <span
+                aria-hidden
+                className="ghost-number absolute -top-20 -left-2 text-[9rem] font-bold select-none md:-top-28 md:text-[13rem]"
+              >
+                {index}
+              </span>
+              <h2
+                data-astre={astre}
+                className="relative mb-4 bg-gradient-to-r from-neon-violet via-white to-neon-cyan bg-clip-text text-5xl font-bold text-transparent drop-shadow-[0_0_30px_rgba(168,85,247,0.5)] md:text-7xl">
+                {title}
+              </h2>
+              <div
+                className={`mb-10 h-px w-44 bg-gradient-to-r from-neon-cyan to-transparent shadow-[0_0_12px_#22d3ee] ${align === 'center' ? 'mx-auto' : ''}`}
+              />
+            </div>
+            <div className="holo-text">{children}</div>
           </div>
-          {/* mobile: the body stays transparent to taps so the astres behind it keep
-              their whole surface — only links opt back in (index.css) */}
-          <div className={`holo-text md:pointer-events-auto ${showcase ? 'section-panel' : ''}`}>
-            {children}
-          </div>
-          {/* mobile: the showcase. Empty scroll, no type in the way, the astre coming up
-              on the frame — this is where the flyby happens, and it is also what keeps
-              the next section a journey away rather than the next screenful. */}
-          {showcase && <div aria-hidden className="h-[78svh] md:hidden" />}
         </div>
       </div>
     </section>
@@ -296,12 +213,9 @@ export const App = () => {
           </div>
         </section>
 
-        {/* accent/leak follow the astre each section is staged against: the ringed
-            planet sits right of the mobile track, the black hole left, the pulsar
-            right again, and the galaxy dead ahead */}
-        <Section index="01" title={t.about.title} showcase accent="violet" leak="right">
-          <Reveal>
-            <p className="text-lg leading-relaxed text-white/85 md:text-xl">
+        <Section index="01" title={t.about.title} astre="planet" approach="short">
+          <p className="text-lg leading-relaxed text-white/85 md:text-xl">
+            <Ignite astre="planet">
               {t.about.before}
               <ExternalLink
                 href={LINKS.youtube}
@@ -310,39 +224,45 @@ export const App = () => {
                 {t.about.youtube}
               </ExternalLink>
               {t.about.after}
-            </p>
-          </Reveal>
+            </Ignite>
+          </p>
         </Section>
 
-        <Section
-          index="02"
-          title={t.experience.title}
-          align="right"
-          showcase
-          accent="pink"
-          leak="left"
-        >
+        <Section index="02" title={t.experience.title} align="right" astre="blackHole">
           <div className="space-y-8 md:space-y-10">
             {t.experience.entries.map((entry) => (
-              // one Reveal per entry: each one condenses as it arrives, rather than
-              // the whole résumé firing off the first entry's intersection
-              <Reveal key={entry.title}>
-                <h3 className="text-xl font-bold md:text-2xl">{entry.title}</h3>
-                <p className="mt-1 text-sm tracking-widest text-white/50 uppercase">{entry.period}</p>
-                <TagPills tags={entry.tags} />
-                <p className="mt-4 text-white/75 md:text-lg">{entry.text}</p>
-              </Reveal>
+              <div key={entry.title}>
+                <h3 className="text-xl font-bold md:text-2xl">
+                  <Ignite astre="blackHole">{entry.title}</Ignite>
+                </h3>
+                <p className="mt-1 text-sm tracking-widest text-white/70 uppercase md:text-white/50">
+                  <Ignite astre="blackHole">{entry.period}</Ignite>
+                </p>
+                <Settle astre="blackHole">
+                  <TagPills tags={entry.tags} />
+                </Settle>
+                <p className="mt-4 text-lg text-white/90 md:text-white/75">
+                  <Ignite astre="blackHole">{entry.text}</Ignite>
+                </p>
+              </div>
             ))}
           </div>
         </Section>
 
-        <Section index="03" title={t.projects.title} showcase accent="cyan" leak="right">
+        <Section index="03" title={t.projects.title} astre="pulsar">
           <div className="space-y-8 md:space-y-10">
             {t.projects.items.map((project) => (
-              <Reveal key={project.title}>
-                <h3 className="text-xl font-bold md:text-2xl">{project.title}</h3>
-                <TagPills tags={project.tags} />
-                <p className="mt-4 text-white/75 md:text-lg">{project.text}</p>
+              <div key={project.title}>
+                <h3 className="text-xl font-bold md:text-2xl">
+                  <Ignite astre="pulsar">{project.title}</Ignite>
+                </h3>
+                <Settle astre="pulsar">
+                  <TagPills tags={project.tags} />
+                </Settle>
+                <p className="mt-4 text-lg text-white/90 md:text-white/75">
+                  <Ignite astre="pulsar">{project.text}</Ignite>
+                </p>
+                <Settle astre="pulsar">
                 <div className="mt-4 flex flex-wrap gap-3">
                   {/* mobile: a 44px-tall target, so the pill is a thumb-sized thing
                       and not a 24px sliver floating over a 3D canvas */}
@@ -356,20 +276,21 @@ export const App = () => {
                     </ExternalLink>
                   ))}
                 </div>
-              </Reveal>
+                </Settle>
+              </div>
             ))}
           </div>
         </Section>
 
-        <Section index="04" title={t.contact.title} align="center" accent="violet">
-          <Reveal>
-            <p className="text-lg text-white/85 md:text-xl">{t.contact.text}</p>
-            {/* tighter tracking on mobile: at 0.3em this runs edge to edge on a phone
-                and wraps mid-phrase */}
-            <p className="mt-6 animate-pulse text-xs font-bold tracking-[0.18em] text-neon-cyan/80 uppercase md:text-sm md:tracking-[0.3em]">
-              {t.contact.hint}
-            </p>
-          </Reveal>
+        <Section index="04" title={t.contact.title} align="center" final>
+          <p className="text-lg text-white/85 md:text-xl">
+            {t.contact.text}
+          </p>
+          {/* tighter tracking on mobile: at 0.3em this runs edge to edge on a phone
+              and wraps mid-phrase */}
+          <p className="mt-6 animate-pulse text-xs font-bold tracking-[0.18em] text-neon-cyan/80 uppercase md:text-sm md:tracking-[0.3em]">
+            {t.contact.hint}
+          </p>
         </Section>
       </main>
     </>
