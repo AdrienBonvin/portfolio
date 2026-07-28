@@ -1285,6 +1285,14 @@ const Pulsar = ({ position, scale = 1, mobile }: CelestialProps) => {
     flash.current = THREE.MathUtils.damp(flash.current, 0, 2.6, delta);
     if (spin.current) spin.current.rotation.y += delta * (1.15 + spinBoost.current);
 
+    // Bows out over the last stretch of the journey. Its own visibility test only asks
+    // whether the star is too far away, so once the camera had gone past it the star kept
+    // beating behind you — and with an 11-unit beam and additive blending, "behind you"
+    // still reaches into the frame. At the end of the scroll the destination is the galaxy,
+    // and the pulsar has no business still flashing over the closing screen.
+    const bowOut = 1 - THREE.MathUtils.smoothstep(scrollState.progress, 0.9, 0.99);
+    if (root.current) root.current.visible = flyby.shown && bowOut > 0.01;
+
     // the beat: a sharp crest once per turn rather than a gentle sine, so it
     // reads as a pulse and not as breathing
     const beat = Math.abs(Math.sin(time * 1.6)) ** 6;
@@ -1310,19 +1318,22 @@ const Pulsar = ({ position, scale = 1, mobile }: CelestialProps) => {
       sweep = Math.abs(beamAxis.dot(toViewer)) ** SWEEP_FOCUS;
     }
 
+    // every output is scaled by bowOut, so the star dims away rather than being switched off
     if (core.current) {
       core.current.scale.setScalar(1 + beat * 0.25 + sweep * 0.5 + flash.current * 0.9);
     }
-    if (coreMaterial.current) coreMaterial.current.opacity = Math.min(1, 0.85 + flash.current);
+    if (coreMaterial.current) {
+      coreMaterial.current.opacity = Math.min(1, 0.85 + flash.current) * bowOut;
+    }
     if (corona.current) {
       corona.current.uniforms.uIntensity.value =
-        1.2 + beat * 1.4 + sweep * 2.6 + flash.current * 4.5;
+        (1.2 + beat * 1.4 + sweep * 2.6 + flash.current * 4.5) * bowOut;
     }
     if (beamMaterial.current) {
       // the shaft itself is dimmer than before between sweeps and far brighter through one:
       // the average luminance barely moves, the drama is all in the contrast
       beamMaterial.current.uniforms.uIntensity.value =
-        0.4 + beat * 0.6 + sweep * 2.2 + flash.current * 3.5;
+        (0.4 + beat * 0.6 + sweep * 2.2 + flash.current * 3.5) * bowOut;
     }
 
     // radio pulses leaving the star, staggered so one is always on its way out
@@ -1331,7 +1342,7 @@ const Pulsar = ({ position, scale = 1, mobile }: CelestialProps) => {
       if (!ring || !material) return;
       const t = (time * 0.5 + i / PULSE_RINGS) % 1;
       ring.scale.setScalar(0.6 + t * 9);
-      material.opacity = (1 - t) ** 2 * 0.5;
+      material.opacity = (1 - t) ** 2 * 0.5 * bowOut;
     });
 
     if (shock.current >= 0) {
@@ -1368,8 +1379,11 @@ const Pulsar = ({ position, scale = 1, mobile }: CelestialProps) => {
     answerTap('pulsar', position, origin);
   };
 
+  // No `visible` prop on the group: useFrame owns it, since it folds flyby.shown together
+  // with the bow-out at the end of the journey. Both writing it would have React reset the
+  // group on every re-render.
   return (
-    <group ref={root} position={position} scale={scale} visible={flyby.shown}>
+    <group ref={root} position={position} scale={scale}>
       {/* invisible hitbox: keeps the hover alive while the camera leans in */}
       <AstreHitbox
         radius={2.6}

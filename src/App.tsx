@@ -20,10 +20,23 @@ type SectionProps = {
   // The astre this section's copy belongs to. Tagged on the title so the affordance chip
   // can measure how far that title has travelled up the frame before offering itself.
   astre?: AstreKey;
+  // Shortens the approach. Only the first section wants this: the reader has just left the
+  // hero and has no reason yet to trust that scrolling leads anywhere, so making them cross
+  // a whole empty screen before the first title is the one place the pause costs more than
+  // it buys. Every later approach has an astre flying by to fill it.
+  approach?: 'full' | 'short';
   children: ReactNode;
 };
 
-const Section = ({ index, title, align = 'left', final, astre, children }: SectionProps) => {
+const Section = ({
+  index,
+  title,
+  align = 'left',
+  final,
+  astre,
+  approach = 'full',
+  children,
+}: SectionProps) => {
   const placement =
     align === 'center' ? 'mx-auto text-center' : align === 'right' ? 'ml-auto' : 'mr-auto';
 
@@ -49,7 +62,12 @@ const Section = ({ index, title, align = 'left', final, astre, children }: Secti
               section, so every pixel after that point is scroll with the scene frozen on
               the galaxy. Giving the arrival an approach as well would mean a whole screen
               of that — the galaxy has to land as the page ends, not a screen earlier. */}
-          {!final && <div aria-hidden className="h-svh md:hidden" />}
+          {!final && (
+            <div
+              aria-hidden
+              className={`md:hidden ${approach === 'short' ? 'h-[62svh]' : 'h-svh'}`}
+            />
+          )}
           <div
             className={final ? 'flex min-h-svh flex-col justify-center md:block md:min-h-0' : ''}
           >
@@ -195,7 +213,7 @@ export const App = () => {
           </div>
         </section>
 
-        <Section index="01" title={t.about.title} astre="planet">
+        <Section index="01" title={t.about.title} astre="planet" approach="short">
           <p className="text-lg leading-relaxed text-white/85 md:text-xl">
             <Ignite astre="planet">
               {t.about.before}
