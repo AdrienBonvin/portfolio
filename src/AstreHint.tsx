@@ -95,7 +95,12 @@ export const AstreHint = () => {
       // z-5 puts it between the canvas (z-0) and the page (main is z-10): it belongs to
       // the scene, so a section title coming on screen passes in front of it rather than
       // being crossed by a chip riding over the type.
-      className="pointer-events-none fixed top-0 left-0 z-[5] md:hidden"
+      //
+      // Shown on desktop too, now that clicking an astre is what reveals the copy there as
+      // well. Without it the sections would simply look empty: a mouse gets a pointer
+      // cursor and a camera that leans in on hover, but nothing that says the click is what
+      // brings the text.
+      className="pointer-events-none fixed top-0 left-0 z-[5]"
     >
       <span className={`astre-hint ${astre ? 'is-in' : ''}`}>{label}</span>
     </div>

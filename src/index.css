@@ -1,11 +1,11 @@
-@import 'tailwindcss';
+@import "tailwindcss";
 
 @theme {
   --color-neon-violet: #a855f7;
   --color-neon-cyan: #22d3ee;
   --color-neon-pink: #f472b6;
   --color-void: #050510;
-  --font-display: 'Space Grotesk', system-ui, sans-serif;
+  --font-display: "Space Grotesk", system-ui, sans-serif;
 }
 
 body {
@@ -69,40 +69,37 @@ html {
    Only opacity, transform and filter are animated — those stay on the compositor, which
    matters with a WebGL canvas already claiming the frame budget.
 
-   Mobile only, and the whole thing has to be: desktop has no legibility problem to solve
-   — its frame is wide enough to keep the copy clear of the astres — and unscoped, the
-   dark state would hide the desktop copy until an astre happened to fly past. The word
-   spans stay in the markup there, they simply carry nothing and do not even become
-   inline-block, so the desktop line breaking is untouched. */
-@media (max-width: 767px) {
-  .ignite-word {
-    display: inline-block;
-  }
+   Both viewports: clicking an astre reveals the copy on desktop too. The plumbing was
+   already device-agnostic — the hitbox is permanently live off portrait and markTapped
+   runs before any touch test — so this stylesheet was the only thing keeping the reveal
+   to phones. */
+.ignite-word {
+  display: inline-block;
+}
 
-  /* an inline-block is an atomic box, so an ancestor link stops drawing its underline
+/* an inline-block is an atomic box, so an ancestor link stops drawing its underline
      through it — only the spaces between words kept it */
-  a .ignite-word {
-    text-decoration: inherit;
-  }
+a .ignite-word {
+  text-decoration: inherit;
+}
 
-  /* Waiting to be lit. The words are in the DOM and readable by a screen reader; they are
+/* Waiting to be lit. The words are in the DOM and readable by a screen reader; they are
      simply not painted yet. */
-  .ignite.is-dark .ignite-word {
-    opacity: 0;
-  }
+.ignite.is-dark .ignite-word {
+  opacity: 0;
+}
 
-  /* A link's underline is painted by the <a>, not by the words inside it, so it survives
+/* A link's underline is painted by the <a>, not by the words inside it, so it survives
      its own text going transparent — the About paragraph showed two floating dashes where
      the YouTube link was. */
-  .ignite.is-dark a {
-    text-decoration-color: transparent;
-  }
+.ignite.is-dark a {
+  text-decoration-color: transparent;
+}
 
-  .ignite.is-lit .ignite-word {
-    /* backwards: the word holds the 0% frame through its own delay, so it stays dark until
+.ignite.is-lit .ignite-word {
+  /* backwards: the word holds the 0% frame through its own delay, so it stays dark until
        the wave reaches it rather than flashing on and then animating */
-    animation: ignite 700ms cubic-bezier(0.16, 0.84, 0.28, 1) backwards;
-  }
+  animation: ignite 700ms cubic-bezier(0.16, 0.84, 0.28, 1) backwards;
 }
 
 /* The peak sits at 30%: a hard rise into the glow, then a long fall out of it. That is
@@ -126,18 +123,15 @@ html {
   }
 }
 
-@media (max-width: 767px) {
-  /* Pills and link buttons: their outline is drawn by the element, so they cannot ride
-     the wave — they wait it out and settle in behind it. The delay is roughly the wave's
-     own length, so they arrive as the last words finish lighting up. */
-  .settle.is-dark {
-    opacity: 0;
-  }
+/* Pills and link buttons: their outline is drawn by the element, so they cannot ride the
+   wave — they wait it out and settle in behind it. The delay is roughly the wave's own
+   length, so they arrive as the last words finish lighting up. */
+.settle.is-dark {
+  opacity: 0;
+}
 
-  .settle.is-lit {
-    animation: settle-in 500ms ease-out 560ms backwards;
-  }
-
+.settle.is-lit {
+  animation: settle-in 500ms ease-out 560ms backwards;
 }
 
 @keyframes settle-in {
@@ -268,7 +262,7 @@ main button {
 
 /* the dot keeps a pulse on it, so the chip reads as live rather than as a caption */
 .astre-hint::before {
-  content: '';
+  content: "";
   width: 0.375rem;
   height: 0.375rem;
   border-radius: 999px;
@@ -288,4 +282,3 @@ main button {
     transform: scale(1.15);
   }
 }
-
