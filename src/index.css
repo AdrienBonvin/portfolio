@@ -43,6 +43,24 @@ html {
     0 0 10px rgba(5, 5, 16, 0.9);
 }
 
+/* Mobile only — desktop's frame keeps the copy clear of the astres and needs none of this.
+   Two blurs of 24px and 10px spread the dark thin and far: a haze over the scenery that
+   never builds contrast where it counts, at the edge of a letter. Three short stops
+   instead — 2px for the edge, 5px for the body, 14px for a soft seat — so the darkening
+   lives against the glyph and the scene still reads between the words.
+
+   No stroke here, deliberately: a stroke painted under the fill gives more contrast still,
+   but it thickens every letter by half its width, and that extra weight is what made this
+   look like a different typeface the first time round. */
+@media (max-width: 767px) {
+  .holo-text {
+    text-shadow:
+      0 1px 2px rgba(5, 5, 16, 0.98),
+      0 0 5px rgba(5, 5, 16, 0.92),
+      0 0 14px rgba(5, 5, 16, 0.65);
+  }
+}
+
 /* ── Copy the scene lights up (Ignite) ───────────────────────────────────────
    Tapping an astre flares it and sends a wave of light across the copy it carries. Each
    word's delay is its distance to the touch, set inline in JS, so the light travels

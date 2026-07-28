@@ -235,13 +235,13 @@ export const App = () => {
                 <h3 className="text-xl font-bold md:text-2xl">
                   <Ignite astre="blackHole">{entry.title}</Ignite>
                 </h3>
-                <p className="mt-1 text-sm tracking-widest text-white/50 uppercase">
+                <p className="mt-1 text-sm tracking-widest text-white/70 uppercase md:text-white/50">
                   <Ignite astre="blackHole">{entry.period}</Ignite>
                 </p>
                 <Settle astre="blackHole">
                   <TagPills tags={entry.tags} />
                 </Settle>
-                <p className="mt-4 text-white/75 md:text-lg">
+                <p className="mt-4 text-lg text-white/90 md:text-white/75">
                   <Ignite astre="blackHole">{entry.text}</Ignite>
                 </p>
               </div>
@@ -259,7 +259,7 @@ export const App = () => {
                 <Settle astre="pulsar">
                   <TagPills tags={project.tags} />
                 </Settle>
-                <p className="mt-4 text-white/75 md:text-lg">
+                <p className="mt-4 text-lg text-white/90 md:text-white/75">
                   <Ignite astre="pulsar">{project.text}</Ignite>
                 </p>
                 <Settle astre="pulsar">
