@@ -29,10 +29,16 @@ export type AstreKey = 'planet' | 'blackHole' | 'pulsar';
 // Depths are shared between desktop and portrait — the portrait staging only pulls the
 // astres sideways, toward the middle of a frame a third as wide, so the pacing of the
 // journey is identical on both.
+// Spacing matters as much as the depths themselves: it is what each astre's approach is
+// made of. At -43 the pulsar sat only 8 units past the black hole against the 15 that
+// separate the first two, so its section had barely half the run-up — the title appeared
+// at 0.765 and the pulsar was already gone by 0.911, where the planet gets 0.267 → 0.500.
+// -46 gives it a comparable approach and still leaves it swept past by the end of the
+// journey, which sits at z -48.
 export const ASTRE_DEPTH: Record<AstreKey, number> = {
   planet: -20,
   blackHole: -35,
-  pulsar: -43,
+  pulsar: -46,
 };
 
 // Where each astre sits off the corridor. Here rather than inline in the scene because
@@ -41,7 +47,13 @@ export const ASTRE_DEPTH: Record<AstreKey, number> = {
 const OFFSET: Record<AstreKey, { portrait: [number, number]; desktop: [number, number] }> = {
   planet: { portrait: [1.8, 1.8], desktop: [5.5, 2] },
   blackHole: { portrait: [-1.7, 2.6], desktop: [-8, 4] },
-  pulsar: { portrait: [1.6, 2.3], desktop: [12, 3.5] },
+  // Nearer the middle of the frame than its siblings: it is the last astre before the
+  // galaxy, and the finale is worth looking straight at. 0.35 rather than the ~1.7 the
+  // others use because this one is passed at close range, and perspective magnifies the
+  // sideways offset as it comes: at 0.8 it still sat three quarters of the way across the
+  // frame when it filled it. Not zero, though — it is the only astre that is a light
+  // source, and dead on the track it would flare the whole frame through the bloom pass.
+  pulsar: { portrait: [0.35, 2], desktop: [12, 3.5] },
 };
 
 export const astrePosition = (key: AstreKey, portrait: boolean): [number, number, number] => {
