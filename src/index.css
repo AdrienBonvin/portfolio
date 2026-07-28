@@ -43,6 +43,36 @@ html {
     0 0 10px rgba(5, 5, 16, 0.9);
 }
 
+/* ── Per-line scrim, mobile only ─────────────────────────────────────────────
+   A band that follows the line boxes instead of one rectangle around the block:
+   box-decoration-break clones the background onto every line, so it stops at the last
+   word of each line rather than squaring off at the column edge. The scene keeps coming
+   through between the lines, in the margins, and to the right of every short line —
+   which is what the block scrim never allowed.
+
+   Inert on desktop: the wrapper is there in the markup but carries nothing. */
+@media (max-width: 767px) {
+  .line-scrim {
+    /* the background needs an inline box to be cloned per line */
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+    background: rgba(5, 5, 16, 0.8);
+    /* the horizontal padding is what lets the band breathe past the first and last
+       glyph; the vertical padding is eaten by the line-height below */
+    padding: 0.1em 0.3em;
+    border-radius: 0.25em;
+    /* -0.3em pulls the first line back level with the unpadded layout, so adding the
+       band does not shift the column right */
+    margin-left: -0.3em;
+    /* room for the bands to stack without overlapping: at the default leading they
+       collide and read as one solid block again */
+    line-height: 1.95;
+    /* the band is drawn per line, so a hyphenated break is better than a line whose
+       band runs the full column width for one long word */
+    overflow-wrap: break-word;
+  }
+}
+
 /* no I-beam on the floating texts — the neon dot cursor does the job */
 main,
 main * {

@@ -113,6 +113,15 @@ const HeroName = () => {
   );
 };
 
+// Mobile legibility: an inline box so `box-decoration-break: clone` can break its
+// background per line box (index.css). It has to be inline — a block paragraph would
+// give one rectangle around the whole thing, which is the plate we do not want. Kept as
+// a wrapper rather than making the <p> itself inline, because that loses the paragraph's
+// vertical margins and lets two consecutive paragraphs share a line.
+const Lines = ({ children }: { children: ReactNode }) => (
+  <span className="line-scrim">{children}</span>
+);
+
 const TagPills = ({ tags }: { tags: string[] }) => (
   <div className="mt-2 flex flex-wrap gap-2">
     {tags.map((tag) => (
@@ -190,14 +199,16 @@ export const App = () => {
 
         <Section index="01" title={t.about.title}>
           <p className="text-lg leading-relaxed text-white/85 md:text-xl">
-            {t.about.before}
-            <ExternalLink
-              href={LINKS.youtube}
-              className="text-neon-cyan underline decoration-neon-cyan/40 underline-offset-4 transition hover:decoration-neon-cyan"
-            >
-              {t.about.youtube}
-            </ExternalLink>
-            {t.about.after}
+            <Lines>
+              {t.about.before}
+              <ExternalLink
+                href={LINKS.youtube}
+                className="text-neon-cyan underline decoration-neon-cyan/40 underline-offset-4 transition hover:decoration-neon-cyan"
+              >
+                {t.about.youtube}
+              </ExternalLink>
+              {t.about.after}
+            </Lines>
           </p>
         </Section>
 
@@ -205,10 +216,16 @@ export const App = () => {
           <div className="space-y-8 md:space-y-10">
             {t.experience.entries.map((entry) => (
               <div key={entry.title}>
-                <h3 className="text-xl font-bold md:text-2xl">{entry.title}</h3>
-                <p className="mt-1 text-sm tracking-widest text-white/50 uppercase">{entry.period}</p>
+                <h3 className="text-xl font-bold md:text-2xl">
+                  <Lines>{entry.title}</Lines>
+                </h3>
+                <p className="mt-1 text-sm tracking-widest text-white/50 uppercase">
+                  <Lines>{entry.period}</Lines>
+                </p>
                 <TagPills tags={entry.tags} />
-                <p className="mt-4 text-white/75 md:text-lg">{entry.text}</p>
+                <p className="mt-4 text-white/75 md:text-lg">
+                  <Lines>{entry.text}</Lines>
+                </p>
               </div>
             ))}
           </div>
@@ -218,9 +235,13 @@ export const App = () => {
           <div className="space-y-8 md:space-y-10">
             {t.projects.items.map((project) => (
               <div key={project.title}>
-                <h3 className="text-xl font-bold md:text-2xl">{project.title}</h3>
+                <h3 className="text-xl font-bold md:text-2xl">
+                  <Lines>{project.title}</Lines>
+                </h3>
                 <TagPills tags={project.tags} />
-                <p className="mt-4 text-white/75 md:text-lg">{project.text}</p>
+                <p className="mt-4 text-white/75 md:text-lg">
+                  <Lines>{project.text}</Lines>
+                </p>
                 <div className="mt-4 flex flex-wrap gap-3">
                   {/* mobile: a 44px-tall target, so the pill is a thumb-sized thing
                       and not a 24px sliver floating over a 3D canvas */}
@@ -240,11 +261,13 @@ export const App = () => {
         </Section>
 
         <Section index="04" title={t.contact.title} align="center" final>
-          <p className="text-lg text-white/85 md:text-xl">{t.contact.text}</p>
+          <p className="text-lg text-white/85 md:text-xl">
+            <Lines>{t.contact.text}</Lines>
+          </p>
           {/* tighter tracking on mobile: at 0.3em this runs edge to edge on a phone
               and wraps mid-phrase */}
           <p className="mt-6 animate-pulse text-xs font-bold tracking-[0.18em] text-neon-cyan/80 uppercase md:text-sm md:tracking-[0.3em]">
-            {t.contact.hint}
+            <Lines>{t.contact.hint}</Lines>
           </p>
         </Section>
       </main>
