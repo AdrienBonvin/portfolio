@@ -1,11 +1,11 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 @theme {
   --color-neon-violet: #a855f7;
   --color-neon-cyan: #22d3ee;
   --color-neon-pink: #f472b6;
   --color-void: #050510;
-  --font-display: "Space Grotesk", system-ui, sans-serif;
+  --font-display: 'Space Grotesk', system-ui, sans-serif;
 }
 
 body {
@@ -262,7 +262,7 @@ main button {
 
 /* the dot keeps a pulse on it, so the chip reads as live rather than as a caption */
 .astre-hint::before {
-  content: "";
+  content: '';
   width: 0.375rem;
   height: 0.375rem;
   border-radius: 999px;

@@ -4,12 +4,11 @@ import {
   isValidElement,
   useEffect,
   useRef,
-  useState,
   type ReactElement,
   type ReactNode,
 } from 'react';
-import { journeyProgress } from './scrollState';
-import { TAP_EVENT, isOpen, unmarkTapped, type AstreKey, type TapDetail } from './scene/astres';
+import { useReveal } from './reveal';
+import type { AstreKey } from './scene/astres';
 
 // How much delay each pixel of distance from the tap buys, in ms. At 0.55 a word a full
 // phone-height away lights up ~450ms after the touch — fast enough to read as one wave
@@ -17,58 +16,6 @@ import { TAP_EVENT, isOpen, unmarkTapped, type AstreKey, type TapDetail } from '
 const MS_PER_PX = 0.55;
 // Past this the tail would still be arriving after the reader got there.
 const MAX_DELAY = 620;
-
-export type RevealState = 'dark' | 'lit';
-
-const ALL: AstreKey[] = ['planet', 'blackHole', 'pulsar'];
-
-// One state per astre, not per block: a section's prose and its chrome — tag pills, link
-// buttons — have to agree, or the pills sit there lit over copy that has not arrived yet.
-// That was the flaw in the previous take on this: a row of floating pills above no title.
-const states = new Map<AstreKey, RevealState>();
-const origins = new Map<AstreKey, { x: number; y: number }>();
-const REVEAL_EVENT = 'astre:revealed';
-
-const set = (key: AstreKey, next: RevealState, origin?: { x: number; y: number }) => {
-  if (states.get(key) === next) return;
-  states.set(key, next);
-  if (origin) origins.set(key, origin);
-  window.dispatchEvent(new CustomEvent(REVEAL_EVENT));
-};
-
-if (typeof window !== 'undefined') {
-  window.addEventListener(TAP_EVENT, (event) => {
-    const { key, x, y } = (event as CustomEvent<TapDetail>).detail ?? {};
-    if (key && (states.get(key) ?? 'dark') === 'dark') set(key, 'lit', { x, y });
-  });
-
-  // The reveal lasts exactly as long as the astre that granted it. Once it has gone past,
-  // the copy goes dark and the chip is re-armed, so coming back to the section is the same
-  // invitation as the first time rather than a page that has already spent its trick.
-  window.addEventListener(
-    'scroll',
-    () => {
-      const progress = journeyProgress();
-      ALL.forEach((key) => {
-        if (states.get(key) === 'lit' && !isOpen(key, progress)) {
-          unmarkTapped(key);
-          set(key, 'dark');
-        }
-      });
-    },
-    { passive: true },
-  );
-}
-
-export const useReveal = (astre: AstreKey) => {
-  const [, bump] = useState(0);
-  useEffect(() => {
-    const sync = () => bump((n) => n + 1);
-    window.addEventListener(REVEAL_EVENT, sync);
-    return () => window.removeEventListener(REVEAL_EVENT, sync);
-  }, []);
-  return { state: states.get(astre) ?? 'dark', origin: origins.get(astre) };
-};
 
 // Splits every text node into per-word spans so each can be delayed on its own.
 // Recursive: the copy mixes bare strings with elements — the About paragraph wraps a link
