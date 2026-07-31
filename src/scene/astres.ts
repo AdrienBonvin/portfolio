@@ -53,8 +53,12 @@ export const ASTRE_DEPTH: Record<AstreKey, number> = {
 // every close pass a slide toward the screen edge. Near the axis the astres come at the
 // camera instead, and the flyby ends right next to the thing rather than beside the frame.
 const OFFSET: Record<AstreKey, { portrait: [number, number]; desktop: [number, number] }> = {
-  planet: { portrait: [1.8, 1.8], desktop: [3, 1.2] },
-  blackHole: { portrait: [-1.7, 2.6], desktop: [-3.5, 1.5] },
+  // A notch further out than the tightest take (3 / -3.5 / 2.2): at those x the planet's
+  // ring was riding over the About copy mid-approach. Still a fraction of the old wide
+  // offsets, so the pass stays a close one — the astre grows at the text's side and only
+  // slides wide at the very end.
+  planet: { portrait: [1.8, 1.8], desktop: [4, 1.2] },
+  blackHole: { portrait: [-1.7, 2.6], desktop: [-4.5, 1.5] },
   // Nearer the middle of the frame than its siblings: it is the last astre before the
   // galaxy, and the finale is worth looking straight at. 0.35 rather than the ~1.7 the
   // others use because this one is passed at close range, and perspective magnifies the
@@ -68,7 +72,7 @@ const OFFSET: Record<AstreKey, { portrait: [number, number]; desktop: [number, n
   // pulling it onto the track made the close pass a white blowout that filled a third of the
   // screen: this is the one astre that is a light source, and the bow-out does not begin
   // until 0.9, well after it has grown huge.
-  pulsar: { portrait: [0.35, 2], desktop: [2.2, 1.3] },
+  pulsar: { portrait: [0.35, 2], desktop: [2.6, 1.3] },
 };
 
 export const astrePosition = (key: AstreKey, portrait: boolean): [number, number, number] => {
