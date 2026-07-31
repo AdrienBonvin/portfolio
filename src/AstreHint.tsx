@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useT } from './i18n';
 import { journeyProgress } from './scrollState';
 import { TAP_EVENT, approaching, hintAnchor, type AstreKey } from './scene/astres';
+import { REVEAL_EVENT, anyLit } from './reveal';
 
 // How far under the astre the chip rides, in pixels. Below rather than centred, so it
 // never covers the thing it is pointing at.
@@ -42,7 +43,10 @@ export const AstreHint = () => {
   useEffect(() => {
     const sync = () => {
       const open = approaching(journeyProgress());
-      const next = open && titleIsIn(open) ? open : null;
+      // anyLit, not "is this astre lit": an invitation and a paragraph must never share the
+      // page, and two astres are regularly in their windows at once, so naming the next one
+      // while the previous one's copy is on screen is the case to rule out.
+      const next = open && titleIsIn(open) && !anyLit() ? open : null;
       current.current = next;
       setAstre(next);
     };
@@ -50,10 +54,14 @@ export const AstreHint = () => {
     window.addEventListener('scroll', sync, { passive: true });
     window.addEventListener('resize', sync);
     window.addEventListener(TAP_EVENT, sync);
+    // fires just after a reveal flips either way, so the chip retires as the copy lights up
+    // and is offered again once it has gone dark
+    window.addEventListener(REVEAL_EVENT, sync);
     return () => {
       window.removeEventListener('scroll', sync);
       window.removeEventListener('resize', sync);
       window.removeEventListener(TAP_EVENT, sync);
+      window.removeEventListener(REVEAL_EVENT, sync);
     };
   }, []);
 

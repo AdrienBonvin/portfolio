@@ -44,9 +44,13 @@ export const ASTRE_DEPTH: Record<AstreKey, number> = {
 // Where each astre sits off the corridor. Here rather than inline in the scene because
 // the DOM affordance has to project the very same point to follow it (hintAnchor below),
 // and two copies of these numbers would drift apart on the first tweak.
+// Desktop y sits near the camera's own sight line, which looks at y = 1 from y = 1.4. The
+// astres used to ride at 2 to 4, well above it: on a wide frame that reads as scenery
+// hanging from the ceiling rather than as bodies you fly past, and it put the one thing
+// worth clicking outside the band the eye is actually travelling along.
 const OFFSET: Record<AstreKey, { portrait: [number, number]; desktop: [number, number] }> = {
-  planet: { portrait: [1.8, 1.8], desktop: [5.5, 2] },
-  blackHole: { portrait: [-1.7, 2.6], desktop: [-8, 4] },
+  planet: { portrait: [1.8, 1.8], desktop: [5.5, 1.2] },
+  blackHole: { portrait: [-1.7, 2.6], desktop: [-8, 1.5] },
   // Nearer the middle of the frame than its siblings: it is the last astre before the
   // galaxy, and the finale is worth looking straight at. 0.35 rather than the ~1.7 the
   // others use because this one is passed at close range, and perspective magnifies the
@@ -63,7 +67,7 @@ const OFFSET: Record<AstreKey, { portrait: [number, number]; desktop: [number, n
   // pulling it onto the track made the close pass a white blowout that filled a third of the
   // screen: this is the one astre that is a light source, and the bow-out does not begin
   // until 0.9, well after it has grown huge.
-  pulsar: { portrait: [0.35, 2], desktop: [2.8, 2.6] },
+  pulsar: { portrait: [0.35, 2], desktop: [2.8, 1.3] },
 };
 
 export const astrePosition = (key: AstreKey, portrait: boolean): [number, number, number] => {

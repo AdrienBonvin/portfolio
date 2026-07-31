@@ -3,6 +3,7 @@ import { PortfolioScene } from './scene/PortfolioScene';
 import { CursorGlow } from './CursorGlow';
 import { MiniMap } from './MiniMap';
 import { AstreHint } from './AstreHint';
+import { Ignite, Settle } from './Ignite';
 import { LangToggle } from './LangToggle';
 import { journeyProgress, scrollState } from './scrollState';
 import { useT, LINKS } from './i18n';
@@ -214,14 +215,16 @@ export const App = () => {
 
         <Section index="01" title={t.about.title} astre="planet" approach="short">
           <p className="text-lg leading-relaxed text-white/85 md:text-xl">
-            {t.about.before}
+            <Ignite astre="planet">
+              {t.about.before}
               <ExternalLink
                 href={LINKS.youtube}
                 className="text-neon-cyan underline decoration-neon-cyan/40 underline-offset-4 transition hover:decoration-neon-cyan"
               >
                 {t.about.youtube}
               </ExternalLink>
-            {t.about.after}
+              {t.about.after}
+            </Ignite>
           </p>
         </Section>
 
@@ -230,14 +233,16 @@ export const App = () => {
             {t.experience.entries.map((entry) => (
               <div key={entry.title}>
                 <h3 className="text-xl font-bold md:text-2xl">
-                  {entry.title}
+                  <Ignite astre="blackHole">{entry.title}</Ignite>
                 </h3>
                 <p className="mt-1 text-sm tracking-widest text-white/70 uppercase md:text-white/50">
-                  {entry.period}
+                  <Ignite astre="blackHole">{entry.period}</Ignite>
                 </p>
+                <Settle astre="blackHole">
                   <TagPills tags={entry.tags} />
+                </Settle>
                 <p className="mt-4 text-lg text-white/90 md:text-white/75">
-                  {entry.text}
+                  <Ignite astre="blackHole">{entry.text}</Ignite>
                 </p>
               </div>
             ))}
@@ -249,25 +254,29 @@ export const App = () => {
             {t.projects.items.map((project) => (
               <div key={project.title}>
                 <h3 className="text-xl font-bold md:text-2xl">
-                  {project.title}
+                  <Ignite astre="pulsar">{project.title}</Ignite>
                 </h3>
+                <Settle astre="pulsar">
                   <TagPills tags={project.tags} />
+                </Settle>
                 <p className="mt-4 text-lg text-white/90 md:text-white/75">
-                  {project.text}
+                  <Ignite astre="pulsar">{project.text}</Ignite>
                 </p>
-                <div className="mt-4 flex flex-wrap gap-3">
-                  {/* mobile: a 44px-tall target, so the pill is a thumb-sized thing
-                      and not a 24px sliver floating over a 3D canvas */}
-                  {project.links.map((link) => (
-                    <ExternalLink
-                      key={link.href}
-                      href={link.href}
-                      className="rounded-full border border-neon-cyan/50 px-5 py-2.5 text-sm font-bold text-neon-cyan transition hover:bg-neon-cyan/10 hover:shadow-[0_0_25px_-5px_#22d3ee] md:px-4 md:py-1.5"
-                    >
-                      {link.label} ↗
-                    </ExternalLink>
-                  ))}
-                </div>
+                <Settle astre="pulsar">
+                  <div className="mt-4 flex flex-wrap gap-3">
+                    {/* mobile: a 44px-tall target, so the pill is a thumb-sized thing
+                        and not a 24px sliver floating over a 3D canvas */}
+                    {project.links.map((link) => (
+                      <ExternalLink
+                        key={link.href}
+                        href={link.href}
+                        className="rounded-full border border-neon-cyan/50 px-5 py-2.5 text-sm font-bold text-neon-cyan transition hover:bg-neon-cyan/10 hover:shadow-[0_0_25px_-5px_#22d3ee] md:px-4 md:py-1.5"
+                      >
+                        {link.label} ↗
+                      </ExternalLink>
+                    ))}
+                  </div>
+                </Settle>
               </div>
             ))}
           </div>
