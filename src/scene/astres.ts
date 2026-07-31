@@ -53,7 +53,10 @@ const OFFSET: Record<AstreKey, { portrait: [number, number]; desktop: [number, n
   // sideways offset as it comes: at 0.8 it still sat three quarters of the way across the
   // frame when it filled it. Not zero, though — it is the only astre that is a light
   // source, and dead on the track it would flare the whole frame through the bloom pass.
-  pulsar: { portrait: [0.35, 2], desktop: [12, 3.5] },
+  // desktop x pulled in from 12: it was the most off-centre of the three by a wide margin
+  // — the planet sits at 5.5 and the black hole at -8 — so the finale was the one astre you
+  // had to look away from the page to see.
+  pulsar: { portrait: [0.35, 2], desktop: [7.5, 3] },
 };
 
 export const astrePosition = (key: AstreKey, portrait: boolean): [number, number, number] => {

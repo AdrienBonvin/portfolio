@@ -189,35 +189,124 @@ const WarpLines = () => {
   );
 };
 
+// The scenery that drifts past between the big astres. These used to be Platonic solids and
+// a torus knot — handsome, but they belonged to a maths poster, not to a sky. Each one is
+// now a small body you could name: a ringed world, an armillary sphere, a moon on its orbit,
+// a comet. Same neon-wireframe idiom, and still the small cousins of the scene's own
+// objects rather than repeats of them.
+type ShapeKind = 'ringedWorld' | 'armillary' | 'orbit' | 'comet';
+
 type NeonShapeProps = {
   position: [number, number, number];
   color: string;
-  kind: 'icosahedron' | 'torus' | 'torusKnot' | 'octahedron';
+  kind: ShapeKind;
   scale?: number;
   spin?: number;
 };
 
 const COLOR_CYCLE = [NEON.violet, NEON.cyan, NEON.pink];
 
+// Each body is several meshes now, so the parts share one material: it is the thing the
+// hover animates, and one instance per mesh would mean animating three of them in step and
+// paying for three material set-ups per shape.
+const ShapeParts = ({ kind, material }: { kind: ShapeKind; material: THREE.Material }) => {
+  switch (kind) {
+    // a world with its ring, seen at a tilt — the scene's own planet, pocket-sized
+    case 'ringedWorld':
+      return (
+        <>
+          <mesh material={material}>
+            <sphereGeometry args={[0.6, 18, 12]} />
+          </mesh>
+          <mesh material={material} rotation={[1.28, 0.2, 0]}>
+            <torusGeometry args={[1.12, 0.05, 6, 56]} />
+          </mesh>
+        </>
+      );
+    // three hoops on crossed axes: an armillary sphere, the instrument astronomers used to
+    // model the sky before they could photograph it
+    case 'armillary':
+      return (
+        <>
+          <mesh material={material}>
+            <sphereGeometry args={[0.2, 12, 8]} />
+          </mesh>
+          <mesh material={material}>
+            <torusGeometry args={[1, 0.035, 6, 56]} />
+          </mesh>
+          <mesh material={material} rotation={[Math.PI / 2, 0, 0]}>
+            <torusGeometry args={[1, 0.035, 6, 56]} />
+          </mesh>
+          <mesh material={material} rotation={[0, 0, Math.PI / 2.4]}>
+            <torusGeometry args={[0.82, 0.035, 6, 56]} />
+          </mesh>
+        </>
+      );
+    // a moon caught on its path, the bead sitting on the ring rather than inside it
+    case 'orbit':
+      return (
+        <>
+          <mesh material={material}>
+            <sphereGeometry args={[0.34, 16, 12]} />
+          </mesh>
+          <mesh material={material} rotation={[1.1, 0.4, 0]}>
+            <torusGeometry args={[1.05, 0.03, 6, 64]} />
+          </mesh>
+          <mesh material={material} position={[0.92, 0.42, 0.3]}>
+            <sphereGeometry args={[0.14, 10, 8]} />
+          </mesh>
+        </>
+      );
+    // head and tail: the tail is a cone narrowing back to the head, so it reads as volume
+    // streaming away rather than as a triangle stuck on the side
+    case 'comet':
+      return (
+        <>
+          <mesh material={material}>
+            <sphereGeometry args={[0.34, 16, 12]} />
+          </mesh>
+          <mesh material={material} position={[-0.95, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+            <coneGeometry args={[0.3, 1.7, 12, 3, true]} />
+          </mesh>
+        </>
+      );
+  }
+};
+
 const NeonShape = ({ position, color, kind, scale = 1, spin = 0.3 }: NeonShapeProps) => {
-  const mesh = useRef<THREE.Mesh>(null);
-  const material = useRef<THREE.MeshStandardMaterial>(null);
+  const group = useRef<THREE.Group>(null);
   // extra rotation speed added on click, decays back to 0 each frame
   const spinBoost = useRef(0);
   const [hovered, setHovered] = useState(false);
   const [currentColor, setCurrentColor] = useState(color);
   useCursor(hovered);
 
+  const material = useMemo(
+    () =>
+      new THREE.MeshStandardMaterial({
+        color: '#0a0a18',
+        emissive: new THREE.Color(color),
+        emissiveIntensity: 1.6,
+        wireframe: true,
+      }),
+    [color],
+  );
+  useEffect(() => () => material.dispose(), [material]);
+  useEffect(() => {
+    material.emissive.set(currentColor);
+  }, [currentColor, material]);
+
   useFrame((_, delta) => {
-    if (!mesh.current || !material.current) return;
-    mesh.current.rotation.x += delta * (spin + spinBoost.current);
-    mesh.current.rotation.y += delta * (spin * 0.7 + spinBoost.current);
+    const node = group.current;
+    if (!node) return;
+    node.rotation.x += delta * (spin + spinBoost.current);
+    node.rotation.y += delta * (spin * 0.7 + spinBoost.current);
     spinBoost.current = THREE.MathUtils.damp(spinBoost.current, 0, 1.2, delta);
 
     const targetScale = hovered ? scale * 1.3 : scale;
-    mesh.current.scale.setScalar(THREE.MathUtils.damp(mesh.current.scale.x, targetScale, 6, delta));
-    material.current.emissiveIntensity = THREE.MathUtils.damp(
-      material.current.emissiveIntensity,
+    node.scale.setScalar(THREE.MathUtils.damp(node.scale.x, targetScale, 6, delta));
+    material.emissiveIntensity = THREE.MathUtils.damp(
+      material.emissiveIntensity,
       hovered ? 3 : 1.6,
       6,
       delta,
@@ -232,8 +321,8 @@ const NeonShape = ({ position, color, kind, scale = 1, spin = 0.3 }: NeonShapePr
 
   return (
     <Float speed={1.5} rotationIntensity={0.4} floatIntensity={1.2}>
-      <mesh
-        ref={mesh}
+      <group
+        ref={group}
         position={position}
         scale={scale}
         onPointerOver={(e) => {
@@ -243,18 +332,8 @@ const NeonShape = ({ position, color, kind, scale = 1, spin = 0.3 }: NeonShapePr
         onPointerOut={() => setHovered(false)}
         onClick={cycleColor}
       >
-        {kind === 'icosahedron' && <icosahedronGeometry args={[1, 0]} />}
-        {kind === 'torus' && <torusGeometry args={[1, 0.35, 16, 48]} />}
-        {kind === 'torusKnot' && <torusKnotGeometry args={[0.8, 0.25, 96, 16]} />}
-        {kind === 'octahedron' && <octahedronGeometry args={[1, 0]} />}
-        <meshStandardMaterial
-          ref={material}
-          color="#0a0a18"
-          emissive={currentColor}
-          emissiveIntensity={1.6}
-          wireframe
-        />
-      </mesh>
+        <ShapeParts kind={kind} material={material} />
+      </group>
     </Float>
   );
 };
@@ -1902,23 +1981,28 @@ const Constellation = ({ label, href, salt, outline, inner = [], extraStars = []
 
 // One cluster of shapes per section, placed deeper and deeper along -Z.
 const CLUSTERS: NeonShapeProps[][] = [
-  // 0 — hero (kept wide so they never overlap the centered title)
+  // 0 — hero (kept wide so they never overlap the centered title). The armillary opens the
+  // journey: of the four it is the one that reads as "astronomy" rather than "a planet",
+  // which is the right note before the corridor has shown anything of its own.
+  // Pushed wider than the solids they replace: a hooped sphere and a ringed world are two
+  // to three times the silhouette of an icosahedron at the same scale, and at the old x the
+  // ring cut straight through "Bonvin".
   [
-    { position: [-6.5, 3, -5], color: NEON.violet, kind: 'icosahedron', scale: 1.4 },
-    { position: [7, 2.5, -7], color: NEON.cyan, kind: 'torusKnot', scale: 1.1 },
-    { position: [-5, 5.5, -10], color: NEON.pink, kind: 'octahedron', scale: 0.8 },
+    { position: [-8.5, 3.2, -5], color: NEON.violet, kind: 'armillary', scale: 1.3 },
+    { position: [9.5, 3.4, -7], color: NEON.cyan, kind: 'ringedWorld', scale: 1.1 },
+    { position: [-7.5, 6, -11], color: NEON.pink, kind: 'comet', scale: 0.85 },
   ],
-  // 1 — à propos (planet on the right)
-  [{ position: [-4, 4.5, -21], color: NEON.pink, kind: 'torus', scale: 0.9 }],
+  // 1 — à propos (planet on the right, so a moon on the left answers it)
+  [{ position: [-4, 4.5, -21], color: NEON.pink, kind: 'orbit', scale: 0.95 }],
   // 2 — expérience (black hole on the left)
-  [{ position: [7, 5.5, -36], color: NEON.cyan, kind: 'octahedron', scale: 0.9 }],
-  // 3 — projets (supernova on the right)
-  [{ position: [-4, 4.5, -49], color: NEON.violet, kind: 'torus', scale: 0.9 }],
+  [{ position: [7, 5.5, -36], color: NEON.cyan, kind: 'armillary', scale: 0.9 }],
+  // 3 — projets (pulsar on the right)
+  [{ position: [-4, 4.5, -49], color: NEON.violet, kind: 'ringedWorld', scale: 0.95 }],
   // 4 — contact (kept away from the centered text)
   [
-    { position: [-7.5, 2.5, -60], color: NEON.cyan, kind: 'torusKnot', scale: 1.2 },
-    { position: [-4.5, 1, -62], color: NEON.pink, kind: 'octahedron', scale: 0.9 },
-    { position: [6.5, 3, -63], color: NEON.violet, kind: 'icosahedron', scale: 0.9 },
+    { position: [-7.5, 2.5, -60], color: NEON.cyan, kind: 'orbit', scale: 1.15 },
+    { position: [-4.5, 1, -62], color: NEON.pink, kind: 'comet', scale: 0.9 },
+    { position: [6.5, 3, -63], color: NEON.violet, kind: 'armillary', scale: 0.9 },
   ],
 ];
 
