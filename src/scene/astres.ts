@@ -48,26 +48,27 @@ export const ASTRE_DEPTH: Record<AstreKey, number> = {
 // astres used to ride at 2 to 4, well above it: on a wide frame that reads as scenery
 // hanging from the ceiling rather than as bodies you fly past, and it put the one thing
 // worth clicking outside the band the eye is actually travelling along.
+// Desktop x hugs the track like portrait does (planet was at 5.5, black hole at -8):
+// perspective magnifies a fixed sideways offset as a body comes near, so wide offsets made
+// every close pass a slide toward the screen edge. Near the axis the astres come at the
+// camera instead, and the flyby ends right next to the thing rather than beside the frame.
 const OFFSET: Record<AstreKey, { portrait: [number, number]; desktop: [number, number] }> = {
-  planet: { portrait: [1.8, 1.8], desktop: [5.5, 1.2] },
-  blackHole: { portrait: [-1.7, 2.6], desktop: [-8, 1.5] },
+  planet: { portrait: [1.8, 1.8], desktop: [3, 1.2] },
+  blackHole: { portrait: [-1.7, 2.6], desktop: [-3.5, 1.5] },
   // Nearer the middle of the frame than its siblings: it is the last astre before the
   // galaxy, and the finale is worth looking straight at. 0.35 rather than the ~1.7 the
   // others use because this one is passed at close range, and perspective magnifies the
   // sideways offset as it comes: at 0.8 it still sat three quarters of the way across the
   // frame when it filled it. Not zero, though — it is the only astre that is a light
-  // source, and dead on the track it would flare the whole frame through the bloom pass.
-  // Desktop x brought right in, from 12 to 2.8: it was the most off-centre of the three by a
-  // wide margin — the planet sits at 5.5, the black hole at -8 — so the finale was the one
-  // astre you had to look away from the page to see. And any fixed offset reads as more
-  // off-centre the closer the camera gets, since perspective magnifies it, so the astre
-  // passed at the shortest range is the one that needs the smallest x.
+  // source, and dead on the track it would flare the whole frame through the bloom pass —
+  // which is also the floor under the desktop x: it keeps a touch more clearance than the
+  // others relative to its pass, never less than ~2.
   //
   // Portrait keeps 0.35. It was already only ~22% off the middle of that narrow frame, and
   // pulling it onto the track made the close pass a white blowout that filled a third of the
   // screen: this is the one astre that is a light source, and the bow-out does not begin
   // until 0.9, well after it has grown huge.
-  pulsar: { portrait: [0.35, 2], desktop: [2.8, 1.3] },
+  pulsar: { portrait: [0.35, 2], desktop: [2.2, 1.3] },
 };
 
 export const astrePosition = (key: AstreKey, portrait: boolean): [number, number, number] => {
