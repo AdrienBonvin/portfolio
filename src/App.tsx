@@ -198,7 +198,7 @@ export const App = () => {
               the headline, and on a phone frame the ringed planet sits right behind the
               name — the scene's fog pulls them back too (PortfolioScene), this holds
               the ground immediately around the words. */}
-          <div aria-hidden className="hero-veil" />
+          <div aria-hidden className="hero-veil md:hidden" />
           <p className="mb-4 text-[0.6875rem] tracking-[0.35em] text-neon-cyan uppercase md:text-sm md:tracking-[0.4em]">
             {t.hero.kicker}
           </p>

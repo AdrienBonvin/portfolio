@@ -46,35 +46,32 @@ const useAspect = () => {
 const FOG_NEAR = 8;
 const FOG_FAR = 42;
 
-// At the hero the corridor is closed off short of the first astre, so the planet is still
-// out there in the dark rather than hanging behind the title. Set just under its 28-unit
-// distance rather than well under it: that hides the planet, which is the only thing that
-// ever fought the type, while the grid, the asteroids, the near starfield and the whole
-// decorative cluster — all inside 20 units — stay in frame. It opens back up to FOG_FAR
-// over the first third of the journey, so each astre still materialises out of the void as
-// you scroll toward it.
-//
-// Both viewports. Desktop used to keep its astres in full view from the first frame on the
-// grounds that a wide frame leaves the type room, but it does not: the planet sits at x 5.5
-// and its ring reached across "Adrien" from 28 units away.
+// Portrait only: at the hero the corridor is closed off short of the first astre, so the
+// planet is still out there in the dark rather than hanging behind the title on a frame a
+// third as wide as a desktop one. Set just under its 28-unit distance rather than well
+// under it: that hides the planet, which is the only thing that ever fought the type,
+// while the grid, the asteroids and the near starfield stay in frame. It opens back up to
+// FOG_FAR over the first third of the journey, so each astre still materialises out of
+// the void as you scroll toward it.
 const HERO_FOG_FAR = 26;
 
-// One shared vector, so the drive below reaches every grain shader at once — three only
-// injects its fog chunks into built-in materials, and a raw ShaderMaterial is otherwise the
-// one thing here that never fades with distance. Which is the whole reason this has to be
-// shared rather than left to scene.fog: the planet's rings and bands are raw shaders, so
-// closing the scene fog alone would have hidden its core and left its ring hanging there.
-const HERO_FOG = new THREE.Vector2(FOG_NEAR, HERO_FOG_FAR);
+// One shared vector, so the drive below reaches every grain shader at once — three
+// only injects its fog chunks into built-in materials, and a raw ShaderMaterial is
+// otherwise the one thing here that never fades with distance.
+const MOBILE_FOG = new THREE.Vector2(FOG_NEAR, HERO_FOG_FAR);
 
-const fogRange = () => HERO_FOG;
+// On desktop the wider frame keeps the astres clear of the hero type, so their grains
+// keep their unlimited reach.
+const fogRange = (mobile?: boolean) =>
+  mobile ? MOBILE_FOG : new THREE.Vector2(FOG_NEAR, 1e6);
 
 const FogDrive = () => {
   const scene = useThree((state) => state.scene);
   useFrame((_, delta) => {
     const open = THREE.MathUtils.smoothstep(scrollState.progress, 0, 0.3);
     const far = THREE.MathUtils.lerp(HERO_FOG_FAR, FOG_FAR, open);
-    HERO_FOG.y = THREE.MathUtils.damp(HERO_FOG.y, far, 4, delta);
-    if (scene.fog instanceof THREE.Fog) scene.fog.far = HERO_FOG.y;
+    MOBILE_FOG.y = THREE.MathUtils.damp(MOBILE_FOG.y, far, 4, delta);
+    if (scene.fog instanceof THREE.Fog) scene.fog.far = MOBILE_FOG.y;
   });
   return null;
 };
@@ -483,7 +480,7 @@ const useFlyby = (z: number, enabled?: boolean) => {
       // plain MeshBasicMaterials, and three's fog can only mix those toward the fog
       // colour — added over the void that is still a smudge, which is what kept
       // showing through behind the hero title. Past the wall they come off entirely.
-      shown: ahead < HERO_FOG.y,
+      shown: ahead < MOBILE_FOG.y,
     };
     if (next.live === current.current.live && next.shown === current.current.shown) return;
     current.current = next;
@@ -843,29 +840,29 @@ const Planet = ({ position, scale = 1, mobile }: CelestialProps) => {
       uPush: { value: 0.26 },
       uLift: { value: 0.55 },
       uBeam: { value: 0 },
-      uFog: { value: fogRange() },
+      uFog: { value: fogRange(mobile) },
     }),
-    [],
+    [mobile],
   );
   const atmosphereUniforms = useMemo(
     () => ({
       uColor: { value: new THREE.Color('#8b5cf6') },
       uIntensity: { value: 1 },
-      uFog: { value: fogRange() },
+      uFog: { value: fogRange(mobile) },
     }),
-    [],
+    [mobile],
   );
   const bandUniforms = useMemo(
-    () => ({ uIntensity: { value: 1 }, uFog: { value: fogRange() } }),
-    [],
+    () => ({ uIntensity: { value: 1 }, uFog: { value: fogRange(mobile) } }),
+    [mobile],
   );
   const haloUniforms = useMemo(
     () => ({
       uColor: { value: new THREE.Color('#a5f3fc') },
       uIntensity: { value: 0 },
-      uFog: { value: fogRange() },
+      uFog: { value: fogRange(mobile) },
     }),
-    [],
+    [mobile],
   );
 
   useFrame(({ camera, size, viewport }, delta) => {
@@ -1140,18 +1137,18 @@ const BlackHole = ({ position, scale = 1, mobile }: CelestialProps) => {
       uPush: { value: -0.3 },
       uLift: { value: 0.12 },
       uBeam: { value: 1 },
-      uFog: { value: fogRange() },
+      uFog: { value: fogRange(mobile) },
     }),
-    [],
+    [mobile],
   );
   const jetUniforms = useMemo(() => ({ uJet: { value: 0 }, uScale: { value: 600 } }), []);
   const lensUniforms = useMemo(
     () => ({
       uColor: { value: new THREE.Color('#c4b5fd') },
       uIntensity: { value: 1 },
-      uFog: { value: fogRange() },
+      uFog: { value: fogRange(mobile) },
     }),
-    [],
+    [mobile],
   );
 
   useFrame(({ camera, size, viewport }, delta) => {
@@ -1355,17 +1352,17 @@ const Pulsar = ({ position, scale = 1, mobile }: CelestialProps) => {
     () => ({
       uColor: { value: new THREE.Color('#8ff0ff') },
       uIntensity: { value: 1 },
-      uFog: { value: fogRange() },
+      uFog: { value: fogRange(mobile) },
     }),
-    [],
+    [mobile],
   );
   const coronaUniforms = useMemo(
     () => ({
       uColor: { value: new THREE.Color('#c8f6ff') },
       uIntensity: { value: 1.2 },
-      uFog: { value: fogRange() },
+      uFog: { value: fogRange(mobile) },
     }),
-    [],
+    [mobile],
   );
 
   // scratch vectors, so the sweep costs no allocation per frame
@@ -2100,13 +2097,13 @@ export const PortfolioScene = () => {
       onPointerMissed={launchComet}
     >
       <CaptureCamera cameraRef={cameraRef} />
-      <fog attach="fog" args={['#050510', FOG_NEAR, HERO_FOG_FAR]} />
+      <fog attach="fog" args={['#050510', FOG_NEAR, portrait ? HERO_FOG_FAR : FOG_FAR]} />
       <ambientLight intensity={0.4} />
       <pointLight position={[0, 6, 0]} intensity={30} color={NEON.violet} />
 
       <CameraRig />
       <TrackHints portrait={portrait} />
-      <FogDrive />
+      {portrait && <FogDrive />}
 
       {/* the wireframe clutter is desktop-only: on a phone it crowds a frame that is
           already carrying an astre, the section title and a panel of body text */}

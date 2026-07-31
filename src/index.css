@@ -211,30 +211,34 @@ main button {
   -webkit-text-stroke: 1.5px rgba(168, 85, 247, 0.3);
 }
 
-/* Sits under the hero type only, on both viewports. HERO_FOG_FAR already holds the astres
-   back at the start of the journey; this holds the ground right around the words, for
-   whatever else drifts behind them — a comet trail, the near grid, a bright asteroid. */
-.hero-veil {
-  position: absolute;
-  /* bled off the section on every side: the falloff needs room or it reads as a
-     disc of paint rather than as depth */
-  inset: -12svh -25vw;
-  /* negative depth inside main's own stacking context: under the type, over the
-     fixed canvas */
-  z-index: -1;
-  pointer-events: none;
-  /* Barely there. Kept very low on purpose: the starfield is faint to begin with, and even
-     a 50% black wash over it erased the stars along with the planet — which is how the
-     first screen ended up reading as a black rectangle. */
-  background: radial-gradient(
-    46% 34% at 50% 46%,
-    rgba(5, 5, 16, 0.28) 0%,
-    rgba(5, 5, 16, 0.12) 45%,
-    transparent 70%
-  );
-}
-
 /* ── Mobile chrome ───────────────────────────────────────────────────────── */
+
+/* Sits under the hero type only. The scene's fog already keeps the astres back at
+   the start of the journey; this holds the ground right around the words, where a
+   phone frame puts the ringed planet a thumb's width from the name. */
+@media (max-width: 767px) {
+  .hero-veil {
+    position: absolute;
+    /* bled off the section on every side: the falloff needs room or it reads as a
+       disc of paint rather than as depth */
+    inset: -12svh -25vw;
+    /* negative depth inside main's own stacking context: under the type, over the
+       fixed canvas */
+    z-index: -1;
+    pointer-events: none;
+    /* Barely there. HERO_FOG_FAR already holds the planet back, so this only has to take
+       the edge off whatever bright thing drifts behind the words. Kept very low on
+       purpose: the starfield is faint to begin with, and even a 50% black wash over it
+       erased the stars along with the planet — which is how the first screen ended up
+       reading as a black rectangle. */
+    background: radial-gradient(
+      46% 34% at 50% 46%,
+      rgba(5, 5, 16, 0.28) 0%,
+      rgba(5, 5, 16, 0.12) 45%,
+      transparent 70%
+    );
+  }
+}
 
 /* The touch affordance for the astres (AstreHint). Rides along under whichever astre is
    going past — the wrapper carries the position, this carries the look, so the two never
