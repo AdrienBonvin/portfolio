@@ -111,6 +111,10 @@ const ORDER: AstreKey[] = ['planet', 'blackHole', 'pulsar'];
 // Astres answer to a tap once and then they have made their point: the affordance is
 // for someone who has not discovered it yet.
 const tapped = new Set<AstreKey>();
+// Unlike `tapped`, never cleared: re-arming the tap (unmarkTapped) lets a section light up
+// again on a return visit, but the invitation itself is spent for good on the first touch —
+// whoever has already answered it does not need to be invited twice.
+const discovered = new Set<AstreKey>();
 export const TAP_EVENT = 'astre:tapped';
 
 // Where the finger landed, in viewport pixels. The section copy lights up from this
@@ -122,6 +126,7 @@ export type TapDetail = { key: AstreKey; x: number; y: number };
 export const markTapped = (key: AstreKey, origin: { x: number; y: number }) => {
   if (tapped.has(key)) return;
   tapped.add(key);
+  discovered.add(key);
   window.dispatchEvent(new CustomEvent<TapDetail>(TAP_EVENT, { detail: { key, ...origin } }));
 };
 
@@ -141,7 +146,7 @@ export const approaching = (progress: number): AstreKey | null => {
   const z = cameraZ(progress);
   // positive while the astre is still ahead of the camera. Same window the astre itself
   // uses, so the chip never invites a tap that would not land.
-  const open = ORDER.filter((key) => !tapped.has(key) && inFlyby(z - ASTRE_DEPTH[key]));
+  const open = ORDER.filter((key) => !discovered.has(key) && inFlyby(z - ASTRE_DEPTH[key]));
   // An astre you have just flown past still answers a tap for a beat, but it must never
   // out-rank one that is genuinely coming up: ranking by absolute distance had the chip
   // still naming the planet, 1.4 units behind, while the black hole filled the frame 8
