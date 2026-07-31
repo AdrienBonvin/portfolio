@@ -68,7 +68,7 @@ const Section = ({
               // desktop gets a shorter approach than mobile: enough to hold the type back
               // until the section's astre is already big in the frame, without a whole
               // empty screen
-              className={approach === 'short' ? 'h-[62svh] md:h-[45vh]' : 'h-svh md:h-[50vh]'}
+              className={approach === 'short' ? 'h-[62svh] md:h-[70vh]' : 'h-svh md:h-[75vh]'}
             />
           )}
           <div
