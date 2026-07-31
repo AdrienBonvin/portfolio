@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import { useT } from './i18n';
 import { journeyProgress } from './scrollState';
 import { TAP_EVENT, approaching, hintAnchor, type AstreKey } from './scene/astres';
-import { REVEAL_EVENT, anyLit } from './reveal';
 
 // How far under the astre the chip rides, in pixels. Below rather than centred, so it
 // never covers the thing it is pointing at.
@@ -43,10 +42,7 @@ export const AstreHint = () => {
   useEffect(() => {
     const sync = () => {
       const open = approaching(journeyProgress());
-      // anyLit, not "is this astre lit": an invitation and a paragraph must never share the
-      // page, and two astres are regularly in their windows at once, so naming the next one
-      // while the previous one's copy is on screen is the case to rule out.
-      const next = open && titleIsIn(open) && !anyLit() ? open : null;
+      const next = open && titleIsIn(open) ? open : null;
       current.current = next;
       setAstre(next);
     };
@@ -54,14 +50,10 @@ export const AstreHint = () => {
     window.addEventListener('scroll', sync, { passive: true });
     window.addEventListener('resize', sync);
     window.addEventListener(TAP_EVENT, sync);
-    // fires just after a reveal flips either way, so the chip retires as the copy lights up
-    // and is offered again once it has gone dark
-    window.addEventListener(REVEAL_EVENT, sync);
     return () => {
       window.removeEventListener('scroll', sync);
       window.removeEventListener('resize', sync);
       window.removeEventListener(TAP_EVENT, sync);
-      window.removeEventListener(REVEAL_EVENT, sync);
     };
   }, []);
 
@@ -104,10 +96,9 @@ export const AstreHint = () => {
       // the scene, so a section title coming on screen passes in front of it rather than
       // being crossed by a chip riding over the type.
       //
-      // Shown on desktop too, now that clicking an astre is what reveals the copy there as
-      // well. Without it the sections would simply look empty: a mouse gets a pointer
-      // cursor and a camera that leans in on hover, but nothing that says the click is what
-      // brings the text.
+      // Shown on desktop too: the astres answer a click there as well, and TrackHints now
+      // projects their anchors on both viewports — it used to bail out off portrait, which
+      // is why the desktop chip never moved from the corner.
       className="pointer-events-none fixed top-0 left-0 z-[5]"
     >
       <span className={`astre-hint ${astre ? 'is-in' : ''}`}>{label}</span>

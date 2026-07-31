@@ -71,14 +71,35 @@ export const astrePosition = (key: AstreKey, portrait: boolean): [number, number
   return [x, y, ASTRE_DEPTH[key]];
 };
 
-// Each astre's projected screen position, in CSS pixels, written every frame by the scene
-// and read by the affordance chip so it can ride along. A plain mutable record rather than
-// React state: this changes every frame, and re-rendering the chip 60 times a second to
-// move it is exactly the cost the rest of this scene is built to avoid.
-export const hintAnchor: Record<AstreKey, { x: number; y: number; behind: boolean }> = {
-  planet: { x: 0, y: 0, behind: true },
-  blackHole: { x: 0, y: 0, behind: true },
-  pulsar: { x: 0, y: 0, behind: true },
+// Group scale per astre. Alongside the positions for the same reason: the label has to know
+// how big the body actually is on screen to hang under it.
+const SCALE: Record<AstreKey, number> = { planet: 0.85, blackHole: 0.85, pulsar: 0.78 };
+
+export const astreScale = (key: AstreKey, portrait: boolean) => (portrait ? SCALE[key] : 1);
+
+// Radius of each astre's visible body, in world units before its group scale. Not the
+// hitbox radius, which is deliberately generous — this is where the silhouette ends, and it
+// is what lets the label sit just under the object at every distance instead of at a fixed
+// pixel offset that lands far below a distant astre and inside a near one.
+const HALO: Record<AstreKey, number> = { planet: 2.4, blackHole: 2.7, pulsar: 1.4 };
+
+export const astreHalo = (key: AstreKey, portrait: boolean) =>
+  HALO[key] * astreScale(key, portrait);
+
+// Each astre projected to screen pixels, written every frame by the scene and read by the
+// affordance chip so it can ride along. A plain mutable record rather than React state: this
+// changes every frame, and re-rendering the chip 60 times a second to move it is exactly the
+// cost the rest of this scene is built to avoid.
+//
+// `bottom` is the underside of the silhouette and `radius` its on-screen half-height, so the
+// label can both sit against the body and take its size from it.
+export const hintAnchor: Record<
+  AstreKey,
+  { x: number; y: number; bottom: number; radius: number; behind: boolean }
+> = {
+  planet: { x: 0, y: 0, bottom: 0, radius: 0, behind: true },
+  blackHole: { x: 0, y: 0, bottom: 0, radius: 0, behind: true },
+  pulsar: { x: 0, y: 0, bottom: 0, radius: 0, behind: true },
 };
 
 const ORDER: AstreKey[] = ['planet', 'blackHole', 'pulsar'];

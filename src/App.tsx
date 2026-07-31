@@ -3,7 +3,6 @@ import { PortfolioScene } from './scene/PortfolioScene';
 import { CursorGlow } from './CursorGlow';
 import { MiniMap } from './MiniMap';
 import { AstreHint } from './AstreHint';
-import { Ignite, Settle } from './Ignite';
 import { LangToggle } from './LangToggle';
 import { journeyProgress, scrollState } from './scrollState';
 import { useT, LINKS } from './i18n';
@@ -215,16 +214,14 @@ export const App = () => {
 
         <Section index="01" title={t.about.title} astre="planet" approach="short">
           <p className="text-lg leading-relaxed text-white/85 md:text-xl">
-            <Ignite astre="planet">
-              {t.about.before}
+            {t.about.before}
               <ExternalLink
                 href={LINKS.youtube}
                 className="text-neon-cyan underline decoration-neon-cyan/40 underline-offset-4 transition hover:decoration-neon-cyan"
               >
                 {t.about.youtube}
               </ExternalLink>
-              {t.about.after}
-            </Ignite>
+            {t.about.after}
           </p>
         </Section>
 
@@ -233,16 +230,14 @@ export const App = () => {
             {t.experience.entries.map((entry) => (
               <div key={entry.title}>
                 <h3 className="text-xl font-bold md:text-2xl">
-                  <Ignite astre="blackHole">{entry.title}</Ignite>
+                  {entry.title}
                 </h3>
                 <p className="mt-1 text-sm tracking-widest text-white/70 uppercase md:text-white/50">
-                  <Ignite astre="blackHole">{entry.period}</Ignite>
+                  {entry.period}
                 </p>
-                <Settle astre="blackHole">
                   <TagPills tags={entry.tags} />
-                </Settle>
                 <p className="mt-4 text-lg text-white/90 md:text-white/75">
-                  <Ignite astre="blackHole">{entry.text}</Ignite>
+                  {entry.text}
                 </p>
               </div>
             ))}
@@ -254,15 +249,12 @@ export const App = () => {
             {t.projects.items.map((project) => (
               <div key={project.title}>
                 <h3 className="text-xl font-bold md:text-2xl">
-                  <Ignite astre="pulsar">{project.title}</Ignite>
+                  {project.title}
                 </h3>
-                <Settle astre="pulsar">
                   <TagPills tags={project.tags} />
-                </Settle>
                 <p className="mt-4 text-lg text-white/90 md:text-white/75">
-                  <Ignite astre="pulsar">{project.text}</Ignite>
+                  {project.text}
                 </p>
-                <Settle astre="pulsar">
                 <div className="mt-4 flex flex-wrap gap-3">
                   {/* mobile: a 44px-tall target, so the pill is a thumb-sized thing
                       and not a 24px sliver floating over a 3D canvas */}
@@ -276,7 +268,6 @@ export const App = () => {
                     </ExternalLink>
                   ))}
                 </div>
-                </Settle>
               </div>
             ))}
           </div>

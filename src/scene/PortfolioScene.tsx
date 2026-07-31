@@ -7,7 +7,9 @@ import { isTouchDevice, scrollState } from '../scrollState';
 import { useIsMobile } from '../useIsMobile';
 import { LINKS } from '../i18n';
 import {
+  astreHalo,
   astrePosition,
+  astreScale,
   cameraZ,
   hintAnchor,
   inFlyby,
@@ -542,17 +544,26 @@ const AstreHitbox = ({
 const TrackHints = ({ portrait }: { portrait: boolean }) => {
   const camera = useThree((state) => state.camera);
   const size = useThree((state) => state.size);
-  const point = useMemo(() => new THREE.Vector3(), []);
+  const centre = useMemo(() => new THREE.Vector3(), []);
+  const under = useMemo(() => new THREE.Vector3(), []);
 
+  // Both viewports. It used to bail out on desktop, which is why the chip there never moved
+  // and sat in the top-left corner: the anchors it reads were left at their initial zeros.
   useFrame(() => {
-    if (!portrait) return;
     (['planet', 'blackHole', 'pulsar'] as AstreKey[]).forEach((key) => {
-      point.set(...astrePosition(key, true)).project(camera);
+      const position = astrePosition(key, portrait);
+      centre.set(...position).project(camera);
+      // the underside of the body, projected too: that difference is the astre's apparent
+      // radius in pixels, which is what lets the label hug it at any distance
+      under.set(position[0], position[1] - astreHalo(key, portrait), position[2]).project(camera);
+
       const anchor = hintAnchor[key];
-      anchor.x = (point.x * 0.5 + 0.5) * size.width;
-      anchor.y = (-point.y * 0.5 + 0.5) * size.height;
+      anchor.x = (centre.x * 0.5 + 0.5) * size.width;
+      anchor.y = (-centre.y * 0.5 + 0.5) * size.height;
+      anchor.bottom = (-under.y * 0.5 + 0.5) * size.height;
+      anchor.radius = Math.abs(anchor.bottom - anchor.y);
       // past the far plane in NDC means the astre is behind the camera
-      anchor.behind = point.z > 1;
+      anchor.behind = centre.z > 1;
     });
   });
 
@@ -2109,14 +2120,14 @@ export const PortfolioScene = () => {
           otherwise never catch them. Depths are shared, so the pacing is identical. */}
       <Planet
         position={astrePosition('planet', portrait)}
-        scale={portrait ? 0.85 : 1}
+        scale={astreScale('planet', portrait)}
         mobile={portrait}
       />
       {/* portrait y/x put the camera track inside the accretion disc, so scrolling
           past means passing through it — the same close pass the planet's rings give */}
       <BlackHole
         position={astrePosition('blackHole', portrait)}
-        scale={portrait ? 0.85 : 1}
+        scale={astreScale('blackHole', portrait)}
         mobile={portrait}
       />
       {/* likewise the remnant shell: the track runs through the ejecta */}
@@ -2125,7 +2136,7 @@ export const PortfolioScene = () => {
         // still smaller than its siblings on mobile: it is the only astre that is a
         // light source, and close up a full-size one hazes the frame through the
         // bloom pass, taking the body text's contrast with it
-        scale={portrait ? 0.78 : 1}
+        scale={astreScale('pulsar', portrait)}
         mobile={portrait}
       />
       {/* portrait: pushed back so the finale is a destination rather than the
