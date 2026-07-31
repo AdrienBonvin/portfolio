@@ -1,5 +1,6 @@
 import {
   Fragment,
+  useMemo,
   cloneElement,
   isValidElement,
   useEffect,
@@ -64,25 +65,45 @@ const splitWords = (node: ReactNode): ReactNode => {
 export const Ignite = ({ astre, children }: { astre: AstreKey; children: ReactNode }) => {
   const ref = useRef<HTMLSpanElement>(null);
   const { state, origin } = useReveal(astre);
+  // splitWords walks the whole subtree and clones every element in it. Without this it ran
+  // again on each re-render, for no gain: the copy never changes between them.
+  const words = useMemo(() => splitWords(children), [children]);
 
   // Measured once, when the state flips: the camera keeps flying during the reveal, so a
   // distance recomputed per frame would have the wave starting from a point that moved.
   useEffect(() => {
     const root = ref.current;
     if (state !== 'lit' || !origin || !root) return;
-    root.querySelectorAll<HTMLElement>('.ignite-word').forEach((word) => {
+    const nodes = Array.from(root.querySelectorAll<HTMLElement>('.ignite-word'));
+
+    // Every rect first, every style write after, rather than alternating: interleaving
+    // invalidates layout on each word and forces a reflow per word. Measured at 213 words it
+    // is only 1.5ms against 0.9ms, so this is tidiness rather than the fix — the delay came
+    // from the arithmetic below, not from the DOM.
+    const distances = nodes.map((word) => {
       const box = word.getBoundingClientRect();
-      const distance = Math.hypot(
+      return Math.hypot(
         origin.x - (box.left + box.width / 2),
         origin.y - (box.top + box.height / 2),
       );
-      word.style.animationDelay = `${Math.min(distance * MS_PER_PX, MAX_DELAY)}ms`;
+    });
+
+    // Rebased on the nearest word, and this is what made the reveal feel broken. The astre is
+    // off to one side of the copy, so raw distances gave the *closest* word a delay of 500ms
+    // in the About block and over 1300ms in Experience and Projects — past MAX_DELAY, meaning
+    // every word waited the full cap and nothing at all happened for 620ms after the tap.
+    // Subtracting the minimum makes the block answer immediately and keeps the wave, since
+    // only the differences between words ever mattered.
+    const nearest = Math.min(...distances);
+    nodes.forEach((word, i) => {
+      const delay = Math.min((distances[i] - nearest) * MS_PER_PX, MAX_DELAY);
+      word.style.animationDelay = `${delay}ms`;
     });
   }, [state, origin]);
 
   return (
     <span ref={ref} className={`ignite is-${state}`}>
-      {splitWords(children)}
+      {words}
     </span>
   );
 };

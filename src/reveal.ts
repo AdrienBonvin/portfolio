@@ -59,9 +59,18 @@ if (typeof window !== 'undefined') {
 export const useReveal = (astre: AstreKey) => {
   const [, bump] = useState(0);
   useEffect(() => {
-    const sync = () => bump((n) => n + 1);
+    // Only re-render when *this* astre changes. Every reveal used to wake all seventeen
+    // subscribers, and each Ignite re-splits its copy into word spans when it renders, so
+    // one tap rebuilt every paragraph on the page instead of the three it lit.
+    let last = states.get(astre) ?? 'dark';
+    const sync = () => {
+      const now = states.get(astre) ?? 'dark';
+      if (now === last) return;
+      last = now;
+      bump((n) => n + 1);
+    };
     window.addEventListener(REVEAL_EVENT, sync);
     return () => window.removeEventListener(REVEAL_EVENT, sync);
-  }, []);
+  }, [astre]);
   return { state: states.get(astre) ?? 'dark', origin: origins.get(astre) };
 };

@@ -1618,7 +1618,10 @@ type ConstellationLogo = {
   inner?: ConstellationElement[];
   extraStars?: [number, number][]; // lone stars (eyes, dots…)
   position: [number, number, number];
-  mobilePosition: [number, number, number]; // 2×2 grid on portrait screens
+  // 2×2 grid on portrait screens. The rows sit higher than the geometry alone would
+  // suggest: the mini-map lays a 96px fade from the void across the bottom of the frame,
+  // and at this distance one world unit is about 78px, so the lower row was sinking into it.
+  mobilePosition: [number, number, number];
   phase: number; // desynchronizes the wander so logos never move in lockstep
   wander?: number; // horizontal drift amplitude
   baseScale?: number; // overall size (slightly smaller on mobile)
@@ -1630,7 +1633,7 @@ const CONTACT_LOGOS: ConstellationLogo[] = [
     href: LINKS.email,
     salt: 60,
     position: [-6.3, -2.1, -57.5],
-    mobilePosition: [-1.15, -1.4, -57.5],
+    mobilePosition: [-1.15, -1, -57.5],
     phase: 0,
     outline: {
       points: [
@@ -1660,7 +1663,7 @@ const CONTACT_LOGOS: ConstellationLogo[] = [
     href: LINKS.github,
     salt: 61,
     position: [-2.1, -2.1, -56.5],
-    mobilePosition: [1.15, -1.4, -56.8],
+    mobilePosition: [1.15, -1, -56.8],
     phase: 2.1,
     outline: {
       // octocat head: wide cheeks, two pointy ears, rounded chin
@@ -1709,7 +1712,7 @@ const CONTACT_LOGOS: ConstellationLogo[] = [
     href: LINKS.linkedin,
     salt: 62,
     position: [2.1, -2.1, -57.2],
-    mobilePosition: [-1.15, -3, -57.2],
+    mobilePosition: [-1.15, -2.25, -57.2],
     phase: 4.2,
     outline: {
       points: [
@@ -1749,7 +1752,7 @@ const CONTACT_LOGOS: ConstellationLogo[] = [
     href: LINKS.youtube,
     salt: 63,
     position: [6.3, -2.1, -56.8],
-    mobilePosition: [1.15, -3, -56.5],
+    mobilePosition: [1.15, -2.25, -56.5],
     phase: 5.6,
     outline: {
       points: [

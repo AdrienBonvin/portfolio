@@ -101,27 +101,43 @@ html {
   .ignite.is-lit .ignite-word {
     /* backwards: the word holds the 0% frame through its own delay, so it stays dark until
        the wave reaches it rather than flashing on and then animating */
-    animation: ignite 700ms cubic-bezier(0.16, 0.84, 0.28, 1) backwards;
+    animation: ignite 620ms cubic-bezier(0.16, 0.84, 0.28, 1) backwards;
+  }
+
+  /* The haze and the glow live here, on the block, not on each word. A filter gives its
+     element its own compositing layer, and a hundred of them animating at once is what a
+     phone cannot afford — the wave itself only needs opacity and transform, which stay on
+     the compositor. The trade is that the glow flashes over the whole paragraph instead of
+     travelling with the wave; the wave still reads, because the words still arrive in turn. */
+  .ignite.is-lit {
+    animation: ignite-haze 620ms ease-out backwards;
   }
 }
 
-/* The peak sits at 30%: a hard rise into the glow, then a long fall out of it. That is
-   the shape of the astre's own flare (flash damped back to 0 in PortfolioScene), which is
-   what ties the two together — the copy is lit by the flare, not faded in beside it. */
+/* Per word: only the two properties the compositor can animate on its own. */
 @keyframes ignite {
   0% {
     opacity: 0;
     transform: translateY(0.3em) scale(0.94);
-    filter: blur(7px) drop-shadow(0 0 0 rgba(155, 231, 255, 0));
-  }
-  30% {
-    opacity: 1;
-    transform: translateY(0) scale(1.02);
-    filter: blur(0) drop-shadow(0 0 14px rgba(155, 231, 255, 0.95));
   }
   100% {
     opacity: 1;
     transform: none;
+  }
+}
+
+/* Per block: the one filtered layer. The peak sits at 30% — a hard rise into the glow, then
+   a long fall out of it, which is the shape of the astre's own flare (flash damped back to 0
+   in PortfolioScene). That shared curve is what makes the copy read as lit by the flare
+   rather than faded in beside it. */
+@keyframes ignite-haze {
+  0% {
+    filter: blur(6px) drop-shadow(0 0 0 rgba(155, 231, 255, 0));
+  }
+  30% {
+    filter: blur(0) drop-shadow(0 0 16px rgba(155, 231, 255, 0.9));
+  }
+  100% {
     filter: blur(0) drop-shadow(0 0 0 rgba(155, 231, 255, 0));
   }
 }
@@ -148,6 +164,7 @@ html {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .ignite.is-lit,
   .ignite.is-lit .ignite-word,
   .settle.is-lit {
     animation: none;

@@ -50,17 +50,27 @@ export const AstreHint = () => {
       current.current = next;
       setAstre(next);
     };
+    // A tap means the invitation has been answered, so the chip goes without asking anyone
+    // else. Belt and braces on top of the anyLit check above: that one depends on the reveal
+    // store having already flipped when this listener runs, and an invitation left sitting
+    // next to the paragraph it just produced is the one failure worth ruling out twice.
+    const retire = () => {
+      current.current = null;
+      setAstre(null);
+    };
+
     sync();
     window.addEventListener('scroll', sync, { passive: true });
     window.addEventListener('resize', sync);
-    window.addEventListener(TAP_EVENT, sync);
-    // fires just after a reveal flips either way, so the chip retires as the copy lights up
-    // and is offered again once it has gone dark
+    // retire, not sync, on the tap itself: sync would ask anyLit() whether a reveal has
+    // happened yet, and whether it has depends on which listener ran first. REVEAL_EVENT
+    // below is what brings the chip back once the copy has gone dark again.
+    window.addEventListener(TAP_EVENT, retire);
     window.addEventListener(REVEAL_EVENT, sync);
     return () => {
       window.removeEventListener('scroll', sync);
       window.removeEventListener('resize', sync);
-      window.removeEventListener(TAP_EVENT, sync);
+      window.removeEventListener(TAP_EVENT, retire);
       window.removeEventListener(REVEAL_EVENT, sync);
     };
   }, []);
