@@ -66,8 +66,9 @@ const Section = ({
             <div
               aria-hidden
               // desktop gets a shorter approach than mobile: enough to hold the type back
-              // while the section's astre is still arriving, without a whole empty screen
-              className={approach === 'short' ? 'h-[62svh] md:h-[12vh]' : 'h-svh md:h-[20vh]'}
+              // until the section's astre is already big in the frame, without a whole
+              // empty screen
+              className={approach === 'short' ? 'h-[62svh] md:h-[45vh]' : 'h-svh md:h-[50vh]'}
             />
           )}
           <div
