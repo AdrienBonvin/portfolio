@@ -85,8 +85,10 @@ const NEON = {
   pink: '#f472b6',
 };
 
-// World position of the big object currently hovered (planet, black hole, supernova).
-// The camera gently leans toward it, like leaning in to look closer.
+// World position of the big object just tapped on a touch device. The camera tips toward
+// it for a beat (answerTap), which is what makes the tap move the world. Desktop hover
+// used to lean the camera the same way; it fought the scroll-driven framing every time
+// the pointer crossed an astre, so hover now only animates the astre itself.
 const focusState = { target: null as THREE.Vector3 | null };
 
 // Warp effect: driven by scroll velocity. speed ramps smoothly between 0 and 1.
@@ -500,13 +502,11 @@ const useFlyby = (z: number, enabled?: boolean) => {
 const AstreHitbox = ({
   radius,
   live,
-  focus,
   onHover,
   onTap,
 }: {
   radius: number;
   live: boolean;
-  focus: [number, number, number];
   onHover: (hovered: boolean) => void;
   onTap: (origin: { x: number; y: number }) => void;
 }) => (
@@ -515,11 +515,9 @@ const AstreHitbox = ({
     onPointerOver={(e) => {
       e.stopPropagation();
       onHover(true);
-      if (!isTouchDevice()) focusState.target = new THREE.Vector3(...focus);
     }}
     onPointerOut={() => {
       onHover(false);
-      focusState.target = null;
     }}
     onClick={(e) => {
       e.stopPropagation();
@@ -923,7 +921,6 @@ const Planet = ({ position, scale = 1, mobile }: CelestialProps) => {
         <AstreHitbox
           radius={4}
           live={!mobile || flyby.live}
-          focus={position}
           onHover={setHovered}
           onTap={detonate}
         />
@@ -1202,7 +1199,6 @@ const BlackHole = ({ position, scale = 1, mobile }: CelestialProps) => {
         <AstreHitbox
           radius={mobile ? 3.8 : 3.2}
           live={!mobile || flyby.live}
-          focus={position}
           onHover={setHovered}
           onTap={detonate}
         />
@@ -1481,7 +1477,6 @@ const Pulsar = ({ position, scale = 1, mobile }: CelestialProps) => {
       <AstreHitbox
         radius={2.6}
         live={!mobile || flyby.live}
-        focus={position}
         onHover={setHovered}
         onTap={detonate}
       />
