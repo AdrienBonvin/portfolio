@@ -101,27 +101,43 @@ html {
   .ignite.is-lit .ignite-word {
     /* backwards: the word holds the 0% frame through its own delay, so it stays dark until
        the wave reaches it rather than flashing on and then animating */
-    animation: ignite 700ms cubic-bezier(0.16, 0.84, 0.28, 1) backwards;
+    animation: ignite 620ms cubic-bezier(0.16, 0.84, 0.28, 1) backwards;
+  }
+
+  /* The haze and the glow live here, on the block, not on each word. A filter gives its
+     element its own compositing layer, and a hundred of them animating at once is what a
+     phone cannot afford — the wave itself only needs opacity and transform, which stay on
+     the compositor. The trade is that the glow flashes over the whole paragraph instead of
+     travelling with the wave; the wave still reads, because the words still arrive in turn. */
+  .ignite.is-lit {
+    animation: ignite-haze 620ms ease-out backwards;
   }
 }
 
-/* The peak sits at 30%: a hard rise into the glow, then a long fall out of it. That is
-   the shape of the astre's own flare (flash damped back to 0 in PortfolioScene), which is
-   what ties the two together — the copy is lit by the flare, not faded in beside it. */
+/* Per word: only the two properties the compositor can animate on its own. */
 @keyframes ignite {
   0% {
     opacity: 0;
     transform: translateY(0.3em) scale(0.94);
-    filter: blur(7px) drop-shadow(0 0 0 rgba(155, 231, 255, 0));
-  }
-  30% {
-    opacity: 1;
-    transform: translateY(0) scale(1.02);
-    filter: blur(0) drop-shadow(0 0 14px rgba(155, 231, 255, 0.95));
   }
   100% {
     opacity: 1;
     transform: none;
+  }
+}
+
+/* Per block: the one filtered layer. The peak sits at 30% — a hard rise into the glow, then
+   a long fall out of it, which is the shape of the astre's own flare (flash damped back to 0
+   in PortfolioScene). That shared curve is what makes the copy read as lit by the flare
+   rather than faded in beside it. */
+@keyframes ignite-haze {
+  0% {
+    filter: blur(6px) drop-shadow(0 0 0 rgba(155, 231, 255, 0));
+  }
+  30% {
+    filter: blur(0) drop-shadow(0 0 16px rgba(155, 231, 255, 0.9));
+  }
+  100% {
     filter: blur(0) drop-shadow(0 0 0 rgba(155, 231, 255, 0));
   }
 }
@@ -148,6 +164,7 @@ html {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .ignite.is-lit,
   .ignite.is-lit .ignite-word,
   .settle.is-lit {
     animation: none;
@@ -194,34 +211,30 @@ main button {
   -webkit-text-stroke: 1.5px rgba(168, 85, 247, 0.3);
 }
 
-/* ── Mobile chrome ───────────────────────────────────────────────────────── */
-
-/* Sits under the hero type only. The scene's fog already keeps the astres back at
-   the start of the journey; this holds the ground right around the words, where a
-   phone frame puts the ringed planet a thumb's width from the name. */
-@media (max-width: 767px) {
-  .hero-veil {
-    position: absolute;
-    /* bled off the section on every side: the falloff needs room or it reads as a
-       disc of paint rather than as depth */
-    inset: -12svh -25vw;
-    /* negative depth inside main's own stacking context: under the type, over the
-       fixed canvas */
-    z-index: -1;
-    pointer-events: none;
-    /* Barely there. HERO_FOG_FAR already holds the planet back, so this only has to take
-       the edge off whatever bright thing drifts behind the words. Kept very low on
-       purpose: the starfield is faint to begin with, and even a 50% black wash over it
-       erased the stars along with the planet — which is how the first screen ended up
-       reading as a black rectangle. */
-    background: radial-gradient(
-      46% 34% at 50% 46%,
-      rgba(5, 5, 16, 0.28) 0%,
-      rgba(5, 5, 16, 0.12) 45%,
-      transparent 70%
-    );
-  }
+/* Sits under the hero type only, on both viewports. HERO_FOG_FAR already holds the astres
+   back at the start of the journey; this holds the ground right around the words, for
+   whatever else drifts behind them — a comet trail, the near grid, a bright asteroid. */
+.hero-veil {
+  position: absolute;
+  /* bled off the section on every side: the falloff needs room or it reads as a
+     disc of paint rather than as depth */
+  inset: -12svh -25vw;
+  /* negative depth inside main's own stacking context: under the type, over the
+     fixed canvas */
+  z-index: -1;
+  pointer-events: none;
+  /* Barely there. Kept very low on purpose: the starfield is faint to begin with, and even
+     a 50% black wash over it erased the stars along with the planet — which is how the
+     first screen ended up reading as a black rectangle. */
+  background: radial-gradient(
+    46% 34% at 50% 46%,
+    rgba(5, 5, 16, 0.28) 0%,
+    rgba(5, 5, 16, 0.12) 45%,
+    transparent 70%
+  );
 }
+
+/* ── Mobile chrome ───────────────────────────────────────────────────────── */
 
 /* The touch affordance for the astres (AstreHint). Rides along under whichever astre is
    going past — the wrapper carries the position, this carries the look, so the two never
@@ -256,6 +269,20 @@ main button {
   animation: astre-sway 3.4s ease-in-out infinite;
 }
 
+/* A paragraph is on screen: the invitation has served its purpose and gets out of the way.
+   Driven from the chip's own animation frame (AstreHint), so it holds whatever order the
+   events happened to fire in. */
+.is-hushed .astre-hint {
+  opacity: 0;
+}
+
+/* The astre is mostly out of frame or behind the camera: the label lets go early rather
+   than lingering at the screen edge, pointing at nothing. Same frame-driven toggle as
+   is-hushed (AstreHint). */
+.is-parting .astre-hint {
+  opacity: 0;
+}
+
 @keyframes astre-sway {
   0%,
   100% {
@@ -288,4 +315,3 @@ main button {
     transform: scale(1.15);
   }
 }
-

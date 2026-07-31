@@ -7,7 +7,9 @@ import { isTouchDevice, scrollState } from '../scrollState';
 import { useIsMobile } from '../useIsMobile';
 import { LINKS } from '../i18n';
 import {
+  astreHalo,
   astrePosition,
+  astreScale,
   cameraZ,
   hintAnchor,
   inFlyby,
@@ -44,32 +46,35 @@ const useAspect = () => {
 const FOG_NEAR = 8;
 const FOG_FAR = 42;
 
-// Portrait only: at the hero the corridor is closed off short of the first astre, so the
-// planet is still out there in the dark rather than hanging behind the title on a frame a
-// third as wide as a desktop one. Set just under its 28-unit distance rather than well
-// under it: that hides the planet, which is the only thing that ever fought the type,
-// while the grid, the asteroids and the near starfield stay in frame. It opens back up to
-// FOG_FAR over the first third of the journey, so each astre still materialises out of
-// the void as you scroll toward it.
+// At the hero the corridor is closed off short of the first astre, so the planet is still
+// out there in the dark rather than hanging behind the title. Set just under its 28-unit
+// distance rather than well under it: that hides the planet, which is the only thing that
+// ever fought the type, while the grid, the asteroids, the near starfield and the whole
+// decorative cluster — all inside 20 units — stay in frame. It opens back up to FOG_FAR
+// over the first third of the journey, so each astre still materialises out of the void as
+// you scroll toward it.
+//
+// Both viewports. Desktop used to keep its astres in full view from the first frame on the
+// grounds that a wide frame leaves the type room, but it does not: the planet sits at x 5.5
+// and its ring reached across "Adrien" from 28 units away.
 const HERO_FOG_FAR = 26;
 
-// One shared vector, so the drive below reaches every grain shader at once — three
-// only injects its fog chunks into built-in materials, and a raw ShaderMaterial is
-// otherwise the one thing here that never fades with distance.
-const MOBILE_FOG = new THREE.Vector2(FOG_NEAR, HERO_FOG_FAR);
+// One shared vector, so the drive below reaches every grain shader at once — three only
+// injects its fog chunks into built-in materials, and a raw ShaderMaterial is otherwise the
+// one thing here that never fades with distance. Which is the whole reason this has to be
+// shared rather than left to scene.fog: the planet's rings and bands are raw shaders, so
+// closing the scene fog alone would have hidden its core and left its ring hanging there.
+const HERO_FOG = new THREE.Vector2(FOG_NEAR, HERO_FOG_FAR);
 
-// On desktop the wider frame keeps the astres clear of the hero type, so their grains
-// keep their unlimited reach.
-const fogRange = (mobile?: boolean) =>
-  mobile ? MOBILE_FOG : new THREE.Vector2(FOG_NEAR, 1e6);
+const fogRange = () => HERO_FOG;
 
 const FogDrive = () => {
   const scene = useThree((state) => state.scene);
   useFrame((_, delta) => {
     const open = THREE.MathUtils.smoothstep(scrollState.progress, 0, 0.3);
     const far = THREE.MathUtils.lerp(HERO_FOG_FAR, FOG_FAR, open);
-    MOBILE_FOG.y = THREE.MathUtils.damp(MOBILE_FOG.y, far, 4, delta);
-    if (scene.fog instanceof THREE.Fog) scene.fog.far = MOBILE_FOG.y;
+    HERO_FOG.y = THREE.MathUtils.damp(HERO_FOG.y, far, 4, delta);
+    if (scene.fog instanceof THREE.Fog) scene.fog.far = HERO_FOG.y;
   });
   return null;
 };
@@ -189,35 +194,124 @@ const WarpLines = () => {
   );
 };
 
+// The scenery that drifts past between the big astres. These used to be Platonic solids and
+// a torus knot — handsome, but they belonged to a maths poster, not to a sky. Each one is
+// now a small body you could name: a ringed world, an armillary sphere, a moon on its orbit,
+// a comet. Same neon-wireframe idiom, and still the small cousins of the scene's own
+// objects rather than repeats of them.
+type ShapeKind = 'ringedWorld' | 'armillary' | 'orbit' | 'comet';
+
 type NeonShapeProps = {
   position: [number, number, number];
   color: string;
-  kind: 'icosahedron' | 'torus' | 'torusKnot' | 'octahedron';
+  kind: ShapeKind;
   scale?: number;
   spin?: number;
 };
 
 const COLOR_CYCLE = [NEON.violet, NEON.cyan, NEON.pink];
 
+// Each body is several meshes now, so the parts share one material: it is the thing the
+// hover animates, and one instance per mesh would mean animating three of them in step and
+// paying for three material set-ups per shape.
+const ShapeParts = ({ kind, material }: { kind: ShapeKind; material: THREE.Material }) => {
+  switch (kind) {
+    // a world with its ring, seen at a tilt — the scene's own planet, pocket-sized
+    case 'ringedWorld':
+      return (
+        <>
+          <mesh material={material}>
+            <sphereGeometry args={[0.6, 18, 12]} />
+          </mesh>
+          <mesh material={material} rotation={[1.28, 0.2, 0]}>
+            <torusGeometry args={[1.12, 0.05, 6, 56]} />
+          </mesh>
+        </>
+      );
+    // three hoops on crossed axes: an armillary sphere, the instrument astronomers used to
+    // model the sky before they could photograph it
+    case 'armillary':
+      return (
+        <>
+          <mesh material={material}>
+            <sphereGeometry args={[0.2, 12, 8]} />
+          </mesh>
+          <mesh material={material}>
+            <torusGeometry args={[1, 0.035, 6, 56]} />
+          </mesh>
+          <mesh material={material} rotation={[Math.PI / 2, 0, 0]}>
+            <torusGeometry args={[1, 0.035, 6, 56]} />
+          </mesh>
+          <mesh material={material} rotation={[0, 0, Math.PI / 2.4]}>
+            <torusGeometry args={[0.82, 0.035, 6, 56]} />
+          </mesh>
+        </>
+      );
+    // a moon caught on its path, the bead sitting on the ring rather than inside it
+    case 'orbit':
+      return (
+        <>
+          <mesh material={material}>
+            <sphereGeometry args={[0.34, 16, 12]} />
+          </mesh>
+          <mesh material={material} rotation={[1.1, 0.4, 0]}>
+            <torusGeometry args={[1.05, 0.03, 6, 64]} />
+          </mesh>
+          <mesh material={material} position={[0.92, 0.42, 0.3]}>
+            <sphereGeometry args={[0.14, 10, 8]} />
+          </mesh>
+        </>
+      );
+    // head and tail: the tail is a cone narrowing back to the head, so it reads as volume
+    // streaming away rather than as a triangle stuck on the side
+    case 'comet':
+      return (
+        <>
+          <mesh material={material}>
+            <sphereGeometry args={[0.34, 16, 12]} />
+          </mesh>
+          <mesh material={material} position={[-0.95, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+            <coneGeometry args={[0.3, 1.7, 12, 3, true]} />
+          </mesh>
+        </>
+      );
+  }
+};
+
 const NeonShape = ({ position, color, kind, scale = 1, spin = 0.3 }: NeonShapeProps) => {
-  const mesh = useRef<THREE.Mesh>(null);
-  const material = useRef<THREE.MeshStandardMaterial>(null);
+  const group = useRef<THREE.Group>(null);
   // extra rotation speed added on click, decays back to 0 each frame
   const spinBoost = useRef(0);
   const [hovered, setHovered] = useState(false);
   const [currentColor, setCurrentColor] = useState(color);
   useCursor(hovered);
 
+  const material = useMemo(
+    () =>
+      new THREE.MeshStandardMaterial({
+        color: '#0a0a18',
+        emissive: new THREE.Color(color),
+        emissiveIntensity: 1.6,
+        wireframe: true,
+      }),
+    [color],
+  );
+  useEffect(() => () => material.dispose(), [material]);
+  useEffect(() => {
+    material.emissive.set(currentColor);
+  }, [currentColor, material]);
+
   useFrame((_, delta) => {
-    if (!mesh.current || !material.current) return;
-    mesh.current.rotation.x += delta * (spin + spinBoost.current);
-    mesh.current.rotation.y += delta * (spin * 0.7 + spinBoost.current);
+    const node = group.current;
+    if (!node) return;
+    node.rotation.x += delta * (spin + spinBoost.current);
+    node.rotation.y += delta * (spin * 0.7 + spinBoost.current);
     spinBoost.current = THREE.MathUtils.damp(spinBoost.current, 0, 1.2, delta);
 
     const targetScale = hovered ? scale * 1.3 : scale;
-    mesh.current.scale.setScalar(THREE.MathUtils.damp(mesh.current.scale.x, targetScale, 6, delta));
-    material.current.emissiveIntensity = THREE.MathUtils.damp(
-      material.current.emissiveIntensity,
+    node.scale.setScalar(THREE.MathUtils.damp(node.scale.x, targetScale, 6, delta));
+    material.emissiveIntensity = THREE.MathUtils.damp(
+      material.emissiveIntensity,
       hovered ? 3 : 1.6,
       6,
       delta,
@@ -232,8 +326,8 @@ const NeonShape = ({ position, color, kind, scale = 1, spin = 0.3 }: NeonShapePr
 
   return (
     <Float speed={1.5} rotationIntensity={0.4} floatIntensity={1.2}>
-      <mesh
-        ref={mesh}
+      <group
+        ref={group}
         position={position}
         scale={scale}
         onPointerOver={(e) => {
@@ -243,18 +337,8 @@ const NeonShape = ({ position, color, kind, scale = 1, spin = 0.3 }: NeonShapePr
         onPointerOut={() => setHovered(false)}
         onClick={cycleColor}
       >
-        {kind === 'icosahedron' && <icosahedronGeometry args={[1, 0]} />}
-        {kind === 'torus' && <torusGeometry args={[1, 0.35, 16, 48]} />}
-        {kind === 'torusKnot' && <torusKnotGeometry args={[0.8, 0.25, 96, 16]} />}
-        {kind === 'octahedron' && <octahedronGeometry args={[1, 0]} />}
-        <meshStandardMaterial
-          ref={material}
-          color="#0a0a18"
-          emissive={currentColor}
-          emissiveIntensity={1.6}
-          wireframe
-        />
-      </mesh>
+        <ShapeParts kind={kind} material={material} />
+      </group>
     </Float>
   );
 };
@@ -399,7 +483,7 @@ const useFlyby = (z: number, enabled?: boolean) => {
       // plain MeshBasicMaterials, and three's fog can only mix those toward the fog
       // colour — added over the void that is still a smudge, which is what kept
       // showing through behind the hero title. Past the wall they come off entirely.
-      shown: ahead < MOBILE_FOG.y,
+      shown: ahead < HERO_FOG.y,
     };
     if (next.live === current.current.live && next.shown === current.current.shown) return;
     current.current = next;
@@ -463,17 +547,26 @@ const AstreHitbox = ({
 const TrackHints = ({ portrait }: { portrait: boolean }) => {
   const camera = useThree((state) => state.camera);
   const size = useThree((state) => state.size);
-  const point = useMemo(() => new THREE.Vector3(), []);
+  const centre = useMemo(() => new THREE.Vector3(), []);
+  const under = useMemo(() => new THREE.Vector3(), []);
 
+  // Both viewports. It used to bail out on desktop, which is why the chip there never moved
+  // and sat in the top-left corner: the anchors it reads were left at their initial zeros.
   useFrame(() => {
-    if (!portrait) return;
     (['planet', 'blackHole', 'pulsar'] as AstreKey[]).forEach((key) => {
-      point.set(...astrePosition(key, true)).project(camera);
+      const position = astrePosition(key, portrait);
+      centre.set(...position).project(camera);
+      // the underside of the body, projected too: that difference is the astre's apparent
+      // radius in pixels, which is what lets the label hug it at any distance
+      under.set(position[0], position[1] - astreHalo(key, portrait), position[2]).project(camera);
+
       const anchor = hintAnchor[key];
-      anchor.x = (point.x * 0.5 + 0.5) * size.width;
-      anchor.y = (-point.y * 0.5 + 0.5) * size.height;
+      anchor.x = (centre.x * 0.5 + 0.5) * size.width;
+      anchor.y = (-centre.y * 0.5 + 0.5) * size.height;
+      anchor.bottom = (-under.y * 0.5 + 0.5) * size.height;
+      anchor.radius = Math.abs(anchor.bottom - anchor.y);
       // past the far plane in NDC means the astre is behind the camera
-      anchor.behind = point.z > 1;
+      anchor.behind = centre.z > 1;
     });
   });
 
@@ -750,29 +843,29 @@ const Planet = ({ position, scale = 1, mobile }: CelestialProps) => {
       uPush: { value: 0.26 },
       uLift: { value: 0.55 },
       uBeam: { value: 0 },
-      uFog: { value: fogRange(mobile) },
+      uFog: { value: fogRange() },
     }),
-    [mobile],
+    [],
   );
   const atmosphereUniforms = useMemo(
     () => ({
       uColor: { value: new THREE.Color('#8b5cf6') },
       uIntensity: { value: 1 },
-      uFog: { value: fogRange(mobile) },
+      uFog: { value: fogRange() },
     }),
-    [mobile],
+    [],
   );
   const bandUniforms = useMemo(
-    () => ({ uIntensity: { value: 1 }, uFog: { value: fogRange(mobile) } }),
-    [mobile],
+    () => ({ uIntensity: { value: 1 }, uFog: { value: fogRange() } }),
+    [],
   );
   const haloUniforms = useMemo(
     () => ({
       uColor: { value: new THREE.Color('#a5f3fc') },
       uIntensity: { value: 0 },
-      uFog: { value: fogRange(mobile) },
+      uFog: { value: fogRange() },
     }),
-    [mobile],
+    [],
   );
 
   useFrame(({ camera, size, viewport }, delta) => {
@@ -1047,18 +1140,18 @@ const BlackHole = ({ position, scale = 1, mobile }: CelestialProps) => {
       uPush: { value: -0.3 },
       uLift: { value: 0.12 },
       uBeam: { value: 1 },
-      uFog: { value: fogRange(mobile) },
+      uFog: { value: fogRange() },
     }),
-    [mobile],
+    [],
   );
   const jetUniforms = useMemo(() => ({ uJet: { value: 0 }, uScale: { value: 600 } }), []);
   const lensUniforms = useMemo(
     () => ({
       uColor: { value: new THREE.Color('#c4b5fd') },
       uIntensity: { value: 1 },
-      uFog: { value: fogRange(mobile) },
+      uFog: { value: fogRange() },
     }),
-    [mobile],
+    [],
   );
 
   useFrame(({ camera, size, viewport }, delta) => {
@@ -1262,17 +1355,17 @@ const Pulsar = ({ position, scale = 1, mobile }: CelestialProps) => {
     () => ({
       uColor: { value: new THREE.Color('#8ff0ff') },
       uIntensity: { value: 1 },
-      uFog: { value: fogRange(mobile) },
+      uFog: { value: fogRange() },
     }),
-    [mobile],
+    [],
   );
   const coronaUniforms = useMemo(
     () => ({
       uColor: { value: new THREE.Color('#c8f6ff') },
       uIntensity: { value: 1.2 },
-      uFog: { value: fogRange(mobile) },
+      uFog: { value: fogRange() },
     }),
-    [mobile],
+    [],
   );
 
   // scratch vectors, so the sweep costs no allocation per frame
@@ -1528,7 +1621,10 @@ type ConstellationLogo = {
   inner?: ConstellationElement[];
   extraStars?: [number, number][]; // lone stars (eyes, dots…)
   position: [number, number, number];
-  mobilePosition: [number, number, number]; // 2×2 grid on portrait screens
+  // 2×2 grid on portrait screens. The rows sit higher than the geometry alone would
+  // suggest: the mini-map lays a 96px fade from the void across the bottom of the frame,
+  // and at this distance one world unit is about 78px, so the lower row was sinking into it.
+  mobilePosition: [number, number, number];
   phase: number; // desynchronizes the wander so logos never move in lockstep
   wander?: number; // horizontal drift amplitude
   baseScale?: number; // overall size (slightly smaller on mobile)
@@ -1540,7 +1636,7 @@ const CONTACT_LOGOS: ConstellationLogo[] = [
     href: LINKS.email,
     salt: 60,
     position: [-6.3, -2.1, -57.5],
-    mobilePosition: [-1.15, -1.4, -57.5],
+    mobilePosition: [-1.15, -1, -57.5],
     phase: 0,
     outline: {
       points: [
@@ -1570,7 +1666,7 @@ const CONTACT_LOGOS: ConstellationLogo[] = [
     href: LINKS.github,
     salt: 61,
     position: [-2.1, -2.1, -56.5],
-    mobilePosition: [1.15, -1.4, -56.8],
+    mobilePosition: [1.15, -1, -56.8],
     phase: 2.1,
     outline: {
       // octocat head: wide cheeks, two pointy ears, rounded chin
@@ -1619,7 +1715,7 @@ const CONTACT_LOGOS: ConstellationLogo[] = [
     href: LINKS.linkedin,
     salt: 62,
     position: [2.1, -2.1, -57.2],
-    mobilePosition: [-1.15, -3, -57.2],
+    mobilePosition: [-1.15, -2.25, -57.2],
     phase: 4.2,
     outline: {
       points: [
@@ -1659,7 +1755,7 @@ const CONTACT_LOGOS: ConstellationLogo[] = [
     href: LINKS.youtube,
     salt: 63,
     position: [6.3, -2.1, -56.8],
-    mobilePosition: [1.15, -3, -56.5],
+    mobilePosition: [1.15, -2.25, -56.5],
     phase: 5.6,
     outline: {
       points: [
@@ -1902,23 +1998,28 @@ const Constellation = ({ label, href, salt, outline, inner = [], extraStars = []
 
 // One cluster of shapes per section, placed deeper and deeper along -Z.
 const CLUSTERS: NeonShapeProps[][] = [
-  // 0 — hero (kept wide so they never overlap the centered title)
+  // 0 — hero (kept wide so they never overlap the centered title). The armillary opens the
+  // journey: of the four it is the one that reads as "astronomy" rather than "a planet",
+  // which is the right note before the corridor has shown anything of its own.
+  // Pushed wider than the solids they replace: a hooped sphere and a ringed world are two
+  // to three times the silhouette of an icosahedron at the same scale, and at the old x the
+  // ring cut straight through "Bonvin".
   [
-    { position: [-6.5, 3, -5], color: NEON.violet, kind: 'icosahedron', scale: 1.4 },
-    { position: [7, 2.5, -7], color: NEON.cyan, kind: 'torusKnot', scale: 1.1 },
-    { position: [-5, 5.5, -10], color: NEON.pink, kind: 'octahedron', scale: 0.8 },
+    { position: [-8.5, 3.2, -5], color: NEON.violet, kind: 'armillary', scale: 1.3 },
+    { position: [9.5, 3.4, -7], color: NEON.cyan, kind: 'ringedWorld', scale: 1.1 },
+    { position: [-7.5, 6, -11], color: NEON.pink, kind: 'comet', scale: 0.85 },
   ],
-  // 1 — à propos (planet on the right)
-  [{ position: [-4, 4.5, -21], color: NEON.pink, kind: 'torus', scale: 0.9 }],
+  // 1 — à propos (planet on the right, so a moon on the left answers it)
+  [{ position: [-4, 4.5, -21], color: NEON.pink, kind: 'orbit', scale: 0.95 }],
   // 2 — expérience (black hole on the left)
-  [{ position: [7, 5.5, -36], color: NEON.cyan, kind: 'octahedron', scale: 0.9 }],
-  // 3 — projets (supernova on the right)
-  [{ position: [-4, 4.5, -49], color: NEON.violet, kind: 'torus', scale: 0.9 }],
+  [{ position: [7, 5.5, -36], color: NEON.cyan, kind: 'armillary', scale: 0.9 }],
+  // 3 — projets (pulsar on the right)
+  [{ position: [-4, 4.5, -49], color: NEON.violet, kind: 'ringedWorld', scale: 0.95 }],
   // 4 — contact (kept away from the centered text)
   [
-    { position: [-7.5, 2.5, -60], color: NEON.cyan, kind: 'torusKnot', scale: 1.2 },
-    { position: [-4.5, 1, -62], color: NEON.pink, kind: 'octahedron', scale: 0.9 },
-    { position: [6.5, 3, -63], color: NEON.violet, kind: 'icosahedron', scale: 0.9 },
+    { position: [-7.5, 2.5, -60], color: NEON.cyan, kind: 'orbit', scale: 1.15 },
+    { position: [-4.5, 1, -62], color: NEON.pink, kind: 'comet', scale: 0.9 },
+    { position: [6.5, 3, -63], color: NEON.violet, kind: 'armillary', scale: 0.9 },
   ],
 ];
 
@@ -1999,13 +2100,13 @@ export const PortfolioScene = () => {
       onPointerMissed={launchComet}
     >
       <CaptureCamera cameraRef={cameraRef} />
-      <fog attach="fog" args={['#050510', FOG_NEAR, portrait ? HERO_FOG_FAR : FOG_FAR]} />
+      <fog attach="fog" args={['#050510', FOG_NEAR, HERO_FOG_FAR]} />
       <ambientLight intensity={0.4} />
       <pointLight position={[0, 6, 0]} intensity={30} color={NEON.violet} />
 
       <CameraRig />
       <TrackHints portrait={portrait} />
-      {portrait && <FogDrive />}
+      <FogDrive />
 
       {/* the wireframe clutter is desktop-only: on a phone it crowds a frame that is
           already carrying an astre, the section title and a panel of body text */}
@@ -2025,14 +2126,14 @@ export const PortfolioScene = () => {
           otherwise never catch them. Depths are shared, so the pacing is identical. */}
       <Planet
         position={astrePosition('planet', portrait)}
-        scale={portrait ? 0.85 : 1}
+        scale={astreScale('planet', portrait)}
         mobile={portrait}
       />
       {/* portrait y/x put the camera track inside the accretion disc, so scrolling
           past means passing through it — the same close pass the planet's rings give */}
       <BlackHole
         position={astrePosition('blackHole', portrait)}
-        scale={portrait ? 0.85 : 1}
+        scale={astreScale('blackHole', portrait)}
         mobile={portrait}
       />
       {/* likewise the remnant shell: the track runs through the ejecta */}
@@ -2041,7 +2142,7 @@ export const PortfolioScene = () => {
         // still smaller than its siblings on mobile: it is the only astre that is a
         // light source, and close up a full-size one hazes the frame through the
         // bloom pass, taking the body text's contrast with it
-        scale={portrait ? 0.78 : 1}
+        scale={astreScale('pulsar', portrait)}
         mobile={portrait}
       />
       {/* portrait: pushed back so the finale is a destination rather than the

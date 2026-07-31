@@ -44,16 +44,30 @@ export const ASTRE_DEPTH: Record<AstreKey, number> = {
 // Where each astre sits off the corridor. Here rather than inline in the scene because
 // the DOM affordance has to project the very same point to follow it (hintAnchor below),
 // and two copies of these numbers would drift apart on the first tweak.
+// Desktop y sits near the camera's own sight line, which looks at y = 1 from y = 1.4. The
+// astres used to ride at 2 to 4, well above it: on a wide frame that reads as scenery
+// hanging from the ceiling rather than as bodies you fly past, and it put the one thing
+// worth clicking outside the band the eye is actually travelling along.
 const OFFSET: Record<AstreKey, { portrait: [number, number]; desktop: [number, number] }> = {
-  planet: { portrait: [1.8, 1.8], desktop: [5.5, 2] },
-  blackHole: { portrait: [-1.7, 2.6], desktop: [-8, 4] },
+  planet: { portrait: [1.8, 1.8], desktop: [5.5, 1.2] },
+  blackHole: { portrait: [-1.7, 2.6], desktop: [-8, 1.5] },
   // Nearer the middle of the frame than its siblings: it is the last astre before the
   // galaxy, and the finale is worth looking straight at. 0.35 rather than the ~1.7 the
   // others use because this one is passed at close range, and perspective magnifies the
   // sideways offset as it comes: at 0.8 it still sat three quarters of the way across the
   // frame when it filled it. Not zero, though — it is the only astre that is a light
   // source, and dead on the track it would flare the whole frame through the bloom pass.
-  pulsar: { portrait: [0.35, 2], desktop: [12, 3.5] },
+  // Desktop x brought right in, from 12 to 2.8: it was the most off-centre of the three by a
+  // wide margin — the planet sits at 5.5, the black hole at -8 — so the finale was the one
+  // astre you had to look away from the page to see. And any fixed offset reads as more
+  // off-centre the closer the camera gets, since perspective magnifies it, so the astre
+  // passed at the shortest range is the one that needs the smallest x.
+  //
+  // Portrait keeps 0.35. It was already only ~22% off the middle of that narrow frame, and
+  // pulling it onto the track made the close pass a white blowout that filled a third of the
+  // screen: this is the one astre that is a light source, and the bow-out does not begin
+  // until 0.9, well after it has grown huge.
+  pulsar: { portrait: [0.35, 2], desktop: [2.8, 1.3] },
 };
 
 export const astrePosition = (key: AstreKey, portrait: boolean): [number, number, number] => {
@@ -61,14 +75,35 @@ export const astrePosition = (key: AstreKey, portrait: boolean): [number, number
   return [x, y, ASTRE_DEPTH[key]];
 };
 
-// Each astre's projected screen position, in CSS pixels, written every frame by the scene
-// and read by the affordance chip so it can ride along. A plain mutable record rather than
-// React state: this changes every frame, and re-rendering the chip 60 times a second to
-// move it is exactly the cost the rest of this scene is built to avoid.
-export const hintAnchor: Record<AstreKey, { x: number; y: number; behind: boolean }> = {
-  planet: { x: 0, y: 0, behind: true },
-  blackHole: { x: 0, y: 0, behind: true },
-  pulsar: { x: 0, y: 0, behind: true },
+// Group scale per astre. Alongside the positions for the same reason: the label has to know
+// how big the body actually is on screen to hang under it.
+const SCALE: Record<AstreKey, number> = { planet: 0.85, blackHole: 0.85, pulsar: 0.78 };
+
+export const astreScale = (key: AstreKey, portrait: boolean) => (portrait ? SCALE[key] : 1);
+
+// Radius of each astre's visible body, in world units before its group scale. Not the
+// hitbox radius, which is deliberately generous — this is where the silhouette ends, and it
+// is what lets the label sit just under the object at every distance instead of at a fixed
+// pixel offset that lands far below a distant astre and inside a near one.
+const HALO: Record<AstreKey, number> = { planet: 2.4, blackHole: 2.7, pulsar: 1.4 };
+
+export const astreHalo = (key: AstreKey, portrait: boolean) =>
+  HALO[key] * astreScale(key, portrait);
+
+// Each astre projected to screen pixels, written every frame by the scene and read by the
+// affordance chip so it can ride along. A plain mutable record rather than React state: this
+// changes every frame, and re-rendering the chip 60 times a second to move it is exactly the
+// cost the rest of this scene is built to avoid.
+//
+// `bottom` is the underside of the silhouette and `radius` its on-screen half-height, so the
+// label can both sit against the body and take its size from it.
+export const hintAnchor: Record<
+  AstreKey,
+  { x: number; y: number; bottom: number; radius: number; behind: boolean }
+> = {
+  planet: { x: 0, y: 0, bottom: 0, radius: 0, behind: true },
+  blackHole: { x: 0, y: 0, bottom: 0, radius: 0, behind: true },
+  pulsar: { x: 0, y: 0, bottom: 0, radius: 0, behind: true },
 };
 
 const ORDER: AstreKey[] = ['planet', 'blackHole', 'pulsar'];

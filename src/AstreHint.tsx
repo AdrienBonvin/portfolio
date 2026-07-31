@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useT } from './i18n';
 import { journeyProgress } from './scrollState';
 import { TAP_EVENT, approaching, hintAnchor, type AstreKey } from './scene/astres';
+import { REVEAL_EVENT, anyLit } from './reveal';
 
 // How far under the astre the chip rides, in pixels. Below rather than centred, so it
 // never covers the thing it is pointing at.
@@ -35,6 +36,11 @@ const titleIsIn = (key: AstreKey) => {
 export const AstreHint = () => {
   const t = useT();
   const [astre, setAstre] = useState<AstreKey | null>(null);
+  // Same rule as the animation frame below, kept a second time in React state. Two paths for
+  // one rule is not tidy, but this is the rule that kept coming back: an invitation must
+  // never sit next to the paragraph it produced, and each single mechanism I tried held only
+  // under assumptions I could not verify from here.
+  const [hushedByCopy, setHushedByCopy] = useState(false);
   const chip = useRef<HTMLDivElement>(null);
   // read inside the animation loop, which is bound once
   const current = useRef<AstreKey | null>(null);
@@ -42,31 +48,76 @@ export const AstreHint = () => {
   useEffect(() => {
     const sync = () => {
       const open = approaching(journeyProgress());
-      const next = open && titleIsIn(open) ? open : null;
+      // anyLit, not "is this astre lit": an invitation and a paragraph must never share the
+      // page, and two astres are regularly in their windows at once, so naming the next one
+      // while the previous one's copy is on screen is the case to rule out.
+      const next = open && titleIsIn(open) && !anyLit() ? open : null;
       current.current = next;
       setAstre(next);
+      setHushedByCopy(anyLit());
     };
+    // A tap means the invitation has been answered, so the chip goes without asking anyone
+    // else. Belt and braces on top of the anyLit check above: that one depends on the reveal
+    // store having already flipped when this listener runs, and an invitation left sitting
+    // next to the paragraph it just produced is the one failure worth ruling out twice.
+    const retire = () => {
+      current.current = null;
+      setAstre(null);
+      setHushedByCopy(true);
+    };
+
     sync();
     window.addEventListener('scroll', sync, { passive: true });
     window.addEventListener('resize', sync);
-    window.addEventListener(TAP_EVENT, sync);
+    // retire, not sync, on the tap itself: sync would ask anyLit() whether a reveal has
+    // happened yet, and whether it has depends on which listener ran first. REVEAL_EVENT
+    // below is what brings the chip back once the copy has gone dark again.
+    window.addEventListener(TAP_EVENT, retire);
+    window.addEventListener(REVEAL_EVENT, sync);
     return () => {
       window.removeEventListener('scroll', sync);
       window.removeEventListener('resize', sync);
-      window.removeEventListener(TAP_EVENT, sync);
+      window.removeEventListener(TAP_EVENT, retire);
+      window.removeEventListener(REVEAL_EVENT, sync);
     };
   }, []);
 
   // Follows the astre. Writes a transform straight to the node every frame instead of
   // going through state: the anchor moves with the camera, so this runs at 60fps.
+  //
+  // It also hushes the chip whenever any copy is lit, and that check lives here rather than
+  // in an event listener on purpose. Every event-driven attempt at this rule failed for the
+  // same reason: it only holds if the right listener fires in the right order, and one that
+  // does not leaves an invitation sitting next to the paragraph it just produced. Asked once
+  // a frame, the rule cannot be missed — if a paragraph is on screen, the chip is not.
   useEffect(() => {
     let frame = 0;
+    let hushed: boolean | null = null;
     const follow = () => {
       frame = requestAnimationFrame(follow);
       const node = chip.current;
+      if (!node) return;
+
+      const lit = anyLit();
+      if (lit !== hushed) {
+        hushed = lit;
+        node.classList.toggle('is-hushed', lit);
+      }
+
       const key = current.current;
-      if (!node || !key) return;
+      if (!key) return;
       const anchor = hintAnchor[key];
+
+      // The flyby window outlives the astre's time on screen: the camera drifts past and
+      // the body slides out of frame while the chip, clamped to the edges, keeps naming
+      // something that is no longer there. Once more than half the body has left the
+      // frame — or it has passed behind the camera — the invitation goes.
+      const r = anchor.radius;
+      const spanX = Math.min(anchor.x + r, window.innerWidth) - Math.max(anchor.x - r, 0);
+      const spanY = Math.min(anchor.y + r, window.innerHeight) - Math.max(anchor.y - r, 0);
+      const parting = anchor.behind || (r > 0 && Math.min(spanX, spanY) < r);
+      node.classList.toggle('is-parting', parting);
+
       const box = node.getBoundingClientRect();
       const x = Math.min(
         Math.max(anchor.x, MARGIN + box.width / 2),
@@ -95,9 +146,13 @@ export const AstreHint = () => {
       // z-5 puts it between the canvas (z-0) and the page (main is z-10): it belongs to
       // the scene, so a section title coming on screen passes in front of it rather than
       // being crossed by a chip riding over the type.
-      className="pointer-events-none fixed top-0 left-0 z-[5] md:hidden"
+      //
+      // Shown on desktop too: the astres answer a click there as well, and TrackHints now
+      // projects their anchors on both viewports — it used to bail out off portrait, which
+      // is why the desktop chip never moved from the corner.
+      className="pointer-events-none fixed top-0 left-0 z-[5]"
     >
-      <span className={`astre-hint ${astre ? 'is-in' : ''}`}>{label}</span>
+      <span className={`astre-hint ${astre && !hushedByCopy ? 'is-in' : ''}`}>{label}</span>
     </div>
   );
 };

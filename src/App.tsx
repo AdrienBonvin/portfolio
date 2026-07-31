@@ -65,7 +65,9 @@ const Section = ({
           {!final && (
             <div
               aria-hidden
-              className={`md:hidden ${approach === 'short' ? 'h-[62svh]' : 'h-svh'}`}
+              // desktop gets a shorter approach than mobile: enough to hold the type back
+              // while the section's astre is still arriving, without a whole empty screen
+              className={approach === 'short' ? 'h-[62svh] md:h-[12vh]' : 'h-svh md:h-[20vh]'}
             />
           )}
           <div
@@ -191,14 +193,16 @@ export const App = () => {
       {/* pointer-events-none lets hovers/clicks reach the 3D canvas; cards re-enable them */}
       <main className="pointer-events-none relative z-10">
         {/* Hero */}
-        {/* relative only on mobile: it anchors the veil and the scroll cue, both of
-            which are md:hidden / md:static — desktop stays exactly as it was */}
-        <section className="relative flex min-h-svh flex-col items-center justify-center px-6 text-center md:static md:min-h-screen">
+        {/* relative on both viewports: it anchors the veil. Left md:static after the veil
+            went desktop-wide (the opening fade), the veil's -12svh inset was measured
+            against the whole main — a 86px tail past the last section that pushed the
+            closing screen off centre. */}
+        <section className="relative flex min-h-svh flex-col items-center justify-center px-6 text-center md:min-h-screen">
           {/* mobile: a well of shadow under the type. The astres are the scenery, not
               the headline, and on a phone frame the ringed planet sits right behind the
               name — the scene's fog pulls them back too (PortfolioScene), this holds
               the ground immediately around the words. */}
-          <div aria-hidden className="hero-veil md:hidden" />
+          <div aria-hidden className="hero-veil" />
           <p className="mb-4 text-[0.6875rem] tracking-[0.35em] text-neon-cyan uppercase md:text-sm md:tracking-[0.4em]">
             {t.hero.kicker}
           </p>
@@ -263,19 +267,19 @@ export const App = () => {
                   <Ignite astre="pulsar">{project.text}</Ignite>
                 </p>
                 <Settle astre="pulsar">
-                <div className="mt-4 flex flex-wrap gap-3">
-                  {/* mobile: a 44px-tall target, so the pill is a thumb-sized thing
-                      and not a 24px sliver floating over a 3D canvas */}
-                  {project.links.map((link) => (
-                    <ExternalLink
-                      key={link.href}
-                      href={link.href}
-                      className="rounded-full border border-neon-cyan/50 px-5 py-2.5 text-sm font-bold text-neon-cyan transition hover:bg-neon-cyan/10 hover:shadow-[0_0_25px_-5px_#22d3ee] md:px-4 md:py-1.5"
-                    >
-                      {link.label} ↗
-                    </ExternalLink>
-                  ))}
-                </div>
+                  <div className="mt-4 flex flex-wrap gap-3">
+                    {/* mobile: a 44px-tall target, so the pill is a thumb-sized thing
+                        and not a 24px sliver floating over a 3D canvas */}
+                    {project.links.map((link) => (
+                      <ExternalLink
+                        key={link.href}
+                        href={link.href}
+                        className="rounded-full border border-neon-cyan/50 px-5 py-2.5 text-sm font-bold text-neon-cyan transition hover:bg-neon-cyan/10 hover:shadow-[0_0_25px_-5px_#22d3ee] md:px-4 md:py-1.5"
+                      >
+                        {link.label} ↗
+                      </ExternalLink>
+                    ))}
+                  </div>
                 </Settle>
               </div>
             ))}
