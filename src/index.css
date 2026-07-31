@@ -273,6 +273,13 @@ main button {
   animation: astre-sway 3.4s ease-in-out infinite;
 }
 
+/* A paragraph is on screen: the invitation has served its purpose and gets out of the way.
+   Driven from the chip's own animation frame (AstreHint), so it holds whatever order the
+   events happened to fire in. */
+.is-hushed .astre-hint {
+  opacity: 0;
+}
+
 @keyframes astre-sway {
   0%,
   100% {

@@ -36,6 +36,11 @@ const titleIsIn = (key: AstreKey) => {
 export const AstreHint = () => {
   const t = useT();
   const [astre, setAstre] = useState<AstreKey | null>(null);
+  // Same rule as the animation frame below, kept a second time in React state. Two paths for
+  // one rule is not tidy, but this is the rule that kept coming back: an invitation must
+  // never sit next to the paragraph it produced, and each single mechanism I tried held only
+  // under assumptions I could not verify from here.
+  const [hushedByCopy, setHushedByCopy] = useState(false);
   const chip = useRef<HTMLDivElement>(null);
   // read inside the animation loop, which is bound once
   const current = useRef<AstreKey | null>(null);
@@ -49,6 +54,7 @@ export const AstreHint = () => {
       const next = open && titleIsIn(open) && !anyLit() ? open : null;
       current.current = next;
       setAstre(next);
+      setHushedByCopy(anyLit());
     };
     // A tap means the invitation has been answered, so the chip goes without asking anyone
     // else. Belt and braces on top of the anyLit check above: that one depends on the reveal
@@ -57,6 +63,7 @@ export const AstreHint = () => {
     const retire = () => {
       current.current = null;
       setAstre(null);
+      setHushedByCopy(true);
     };
 
     sync();
@@ -77,13 +84,28 @@ export const AstreHint = () => {
 
   // Follows the astre. Writes a transform straight to the node every frame instead of
   // going through state: the anchor moves with the camera, so this runs at 60fps.
+  //
+  // It also hushes the chip whenever any copy is lit, and that check lives here rather than
+  // in an event listener on purpose. Every event-driven attempt at this rule failed for the
+  // same reason: it only holds if the right listener fires in the right order, and one that
+  // does not leaves an invitation sitting next to the paragraph it just produced. Asked once
+  // a frame, the rule cannot be missed — if a paragraph is on screen, the chip is not.
   useEffect(() => {
     let frame = 0;
+    let hushed: boolean | null = null;
     const follow = () => {
       frame = requestAnimationFrame(follow);
       const node = chip.current;
+      if (!node) return;
+
+      const lit = anyLit();
+      if (lit !== hushed) {
+        hushed = lit;
+        node.classList.toggle('is-hushed', lit);
+      }
+
       const key = current.current;
-      if (!node || !key) return;
+      if (!key) return;
       const anchor = hintAnchor[key];
       const box = node.getBoundingClientRect();
       const x = Math.min(
@@ -119,7 +141,7 @@ export const AstreHint = () => {
       // is why the desktop chip never moved from the corner.
       className="pointer-events-none fixed top-0 left-0 z-[5]"
     >
-      <span className={`astre-hint ${astre ? 'is-in' : ''}`}>{label}</span>
+      <span className={`astre-hint ${astre && !hushedByCopy ? 'is-in' : ''}`}>{label}</span>
     </div>
   );
 };
