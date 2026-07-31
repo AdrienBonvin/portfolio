@@ -65,7 +65,9 @@ const Section = ({
           {!final && (
             <div
               aria-hidden
-              className={`md:hidden ${approach === 'short' ? 'h-[62svh]' : 'h-svh'}`}
+              // desktop gets a shorter approach than mobile: enough to hold the type back
+              // while the section's astre is still arriving, without a whole empty screen
+              className={approach === 'short' ? 'h-[62svh] md:h-[12vh]' : 'h-svh md:h-[20vh]'}
             />
           )}
           <div
@@ -191,9 +193,11 @@ export const App = () => {
       {/* pointer-events-none lets hovers/clicks reach the 3D canvas; cards re-enable them */}
       <main className="pointer-events-none relative z-10">
         {/* Hero */}
-        {/* relative only on mobile: it anchors the veil and the scroll cue, both of
-            which are md:hidden / md:static — desktop stays exactly as it was */}
-        <section className="relative flex min-h-svh flex-col items-center justify-center px-6 text-center md:static md:min-h-screen">
+        {/* relative on both viewports: it anchors the veil. Left md:static after the veil
+            went desktop-wide (the opening fade), the veil's -12svh inset was measured
+            against the whole main — a 86px tail past the last section that pushed the
+            closing screen off centre. */}
+        <section className="relative flex min-h-svh flex-col items-center justify-center px-6 text-center md:min-h-screen">
           {/* mobile: a well of shadow under the type. The astres are the scenery, not
               the headline, and on a phone frame the ringed planet sits right behind the
               name — the scene's fog pulls them back too (PortfolioScene), this holds
