@@ -107,6 +107,17 @@ export const AstreHint = () => {
       const key = current.current;
       if (!key) return;
       const anchor = hintAnchor[key];
+
+      // The flyby window outlives the astre's time on screen: the camera drifts past and
+      // the body slides out of frame while the chip, clamped to the edges, keeps naming
+      // something that is no longer there. Once more than half the body has left the
+      // frame — or it has passed behind the camera — the invitation goes.
+      const r = anchor.radius;
+      const spanX = Math.min(anchor.x + r, window.innerWidth) - Math.max(anchor.x - r, 0);
+      const spanY = Math.min(anchor.y + r, window.innerHeight) - Math.max(anchor.y - r, 0);
+      const parting = anchor.behind || (r > 0 && Math.min(spanX, spanY) < r);
+      node.classList.toggle('is-parting', parting);
+
       const box = node.getBoundingClientRect();
       const x = Math.min(
         Math.max(anchor.x, MARGIN + box.width / 2),

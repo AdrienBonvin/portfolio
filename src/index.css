@@ -276,6 +276,13 @@ main button {
   opacity: 0;
 }
 
+/* The astre is mostly out of frame or behind the camera: the label lets go early rather
+   than lingering at the screen edge, pointing at nothing. Same frame-driven toggle as
+   is-hushed (AstreHint). */
+.is-parting .astre-hint {
+  opacity: 0;
+}
+
 @keyframes astre-sway {
   0%,
   100% {
