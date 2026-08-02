@@ -1,0 +1,6 @@
+id|name|faction_id|source_id|legend|role|loadout|transport|virtual|leader_head|leader_footer|damaged_w|damaged_description|link|
+100|Testagants|TB|||Battleline|Every model is equipped with: fleshzapper; claws.||false||||||
+101|Test Tyrant|TB|||Character|This model is equipped with: bio-cannon; big blade.||false||||||
+200|Test Intercessors|TM|||Battleline|Every model is equipped with: bolt rifle; close combat weapon.||false||||||
+300|Test Squad Alpha|TM|||Infantry|Every model is equipped with: bolt rifle.||false||||||
+301|Test Squad Beta|TM|||Infantry|Every model is equipped with: bolt rifle.||false||||||

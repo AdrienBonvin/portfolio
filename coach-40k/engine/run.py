@@ -92,7 +92,8 @@ def apply_flags(path: Path, armies: list[list[Unit]], warnings: list[str]) -> No
             warnings.append(f"flags: no unit matching {key!r} — entry ignored")
 
 
-def print_summary(report: MatchupReport, out=sys.stdout) -> None:
+def print_summary(report: MatchupReport, out=None) -> None:
+    out = out if out is not None else sys.stdout
     data = report.to_dict()
 
     def fmt_pct(x: float) -> str:

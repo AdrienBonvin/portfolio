@@ -1,0 +1,10 @@
+datasheet_id|line|line_in_wargear|dice|name|description|range|type|A|BS_WS|S|AP|D|
+100|1|1||Fleshzapper|<span class="kwb">ASSAULT</span>|18"|Ranged|1|4+|5|0|1|
+100|2|1||Claws||Melee|Melee|1|4+|3|0|1|
+101|1|1||Bio-cannon|<span class="kwb">SUSTAINED HITS 1</span>, <span class="kwb">BLAST</span>|36"|Ranged|2|3+|7|-1|2|
+101|2|1||Big blade – strike||Melee|Melee|6|2+|9|-2|3|
+101|3|1||Big blade – sweep||Melee|Melee|12|2+|5|-1|1|
+200|1|1||Bolt rifle|<span class="kwb">RAPID FIRE 1</span>|24"|Ranged|2|3+|4|-1|1|
+200|2|1||Close combat weapon||Melee|Melee|3|3+|4|0|1|
+300|1|1||Bolt rifle|<span class="kwb">RAPID FIRE 1</span>|24"|Ranged|2|3+|4|-1|1|
+301|1|1||Bolt rifle|<span class="kwb">RAPID FIRE 1</span>|24"|Ranged|2|3+|4|-1|1|

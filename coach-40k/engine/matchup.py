@@ -48,7 +48,8 @@ def select_weapons(attacker: Unit, defender: Unit, phase: str,
         else:
             chosen.append(max(
                 group,
-                key=lambda w: expected_damage(w, attacker, defender, phase, opts),
+                key=lambda w: expected_damage(w, attacker, defender, phase, opts,
+                                              cap_per_wound=True),
             ))
     # In melee every model always fights: extra-attacks weapons stack.
     chosen.extend(extras)

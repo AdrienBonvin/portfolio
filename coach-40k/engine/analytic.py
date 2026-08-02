@@ -61,8 +61,14 @@ def _damage_distribution(dice: Dice) -> list[tuple[int, float]]:
 
 
 def expected_damage(weapon: Weapon, attacker: Unit, defender: Unit,
-                    phase: str, opts: SimOptions | None = None) -> float:
-    """Expected total damage (post-FNP) of a full activation of this weapon."""
+                    phase: str, opts: SimOptions | None = None,
+                    cap_per_wound: bool = False) -> float:
+    """Expected total damage (post-FNP) of a full activation of this weapon.
+
+    With cap_per_wound=True, damage per unsaved wound is capped at the
+    defender's wounds per model ("useful" damage: the excess is lost to
+    allocation anyway). Used to pick the best weapon profile.
+    """
     opts = opts or SimOptions()
     p = build_plan(weapon, attacker, defender, opts, phase)
 
@@ -111,6 +117,8 @@ def expected_damage(weapon: Weapon, attacker: Unit, defender: Unit,
         if p.half_damage:
             dmg = (dmg + 1) // 2
         dmg = max(1, dmg - p.damage_reduction)
+        if cap_per_wound:
+            dmg = min(dmg, defender.wounds)
         e_dmg += prob * dmg
 
     # Feel No Pain: each damage point is ignored on fnp+

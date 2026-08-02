@@ -208,6 +208,15 @@ class Database:
         if len(exact) > 1:
             raise AmbiguousName(name, [f"{d.name} ({d.faction_name})" for d in exact])
 
+        # A word-prefix of several sheet names is ambiguous by construction
+        # ("Test Squad" vs "Test Squad Alpha"/"Test Squad Beta").
+        prefixed = [d for d in pool if normalize(d.name).startswith(query + " ")]
+        if len(prefixed) == 1:
+            return prefixed[0]
+        if len(prefixed) > 1:
+            raise AmbiguousName(
+                name, [f"{d.name} ({d.faction_name})" for d in prefixed[:6]])
+
         scored = sorted(
             ((SequenceMatcher(None, query, normalize(d.name)).ratio(), d) for d in pool),
             key=lambda t: t[0], reverse=True,
