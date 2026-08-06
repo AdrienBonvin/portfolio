@@ -258,8 +258,11 @@ main button {
   inset: -9svh -16vw;
   z-index: -1;
   pointer-events: none;
+  /* Standard property only, on purpose. Hand-writing the -webkit- alias next to it makes
+     Lightning CSS collapse the pair down to the alias alone, which costs Firefox the
+     effect entirely — it took backdrop-filter in 103 but never the -webkit- spelling.
+     Left to itself the build emits both. Same for the mask below. */
   backdrop-filter: blur(22px) brightness(0.42);
-  -webkit-backdrop-filter: blur(22px) brightness(0.42);
   /* Feathered, or the blur stops on a straight line and the copy reads as a card pasted
      over the scene. The mask is what keeps this a soft spot in the scenery.
 
@@ -268,7 +271,6 @@ main button {
      was not there at all. 62% puts the whole paragraph in the flat part and leaves the
      falloff for the bleed. */
   mask-image: radial-gradient(62% 58% at 50% 50%, #000 62%, transparent 100%);
-  -webkit-mask-image: radial-gradient(62% 58% at 50% 50%, #000 62%, transparent 100%);
 }
 
 /* backdrop-filter is sampled per frame against a canvas that is already claiming the frame
@@ -276,7 +278,6 @@ main button {
 @media (prefers-reduced-motion: reduce) {
   .copy-veil {
     backdrop-filter: none;
-    -webkit-backdrop-filter: none;
     background: radial-gradient(62% 58% at 50% 50%, rgba(5, 5, 16, 0.82) 45%, transparent 100%);
   }
 }
