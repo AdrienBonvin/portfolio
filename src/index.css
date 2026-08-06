@@ -251,50 +251,52 @@ main button {
    Blur has no such ceiling. It takes the high frequency out of the backdrop and leaves the
    light: the astre still reads behind the words, it just stops competing with them at the
    scale of a letterform. The brightness knock is small on purpose — the blur is doing the
-   work, the dimming only seats it. */
-.copy-veil-layer {
-  position: absolute;
-  z-index: -1;
-  pointer-events: none;
-}
-
-/* The three strengths, one per section, so the call gets made by scrolling the real thing
-   rather than by looking at a mock of it. Temporary: keep the winner, delete the other two
-   and the `veil` prop in App.tsx.
-
-   Each is a triple — how far the layer bleeds past the copy, how hard it defocuses, and how
-   much of the mask stays flat before it falls off. They move together on purpose: a wider
-   bleed with a narrow flat core just moves the visible edge inward, and more blur with less
-   dimming reads as fog rather than as depth.
+   work, the dimming only seats it.
 
    Standard backdrop-filter only, no hand-written -webkit- alias. Writing the pair collapses
    it to the alias alone in minification, which costs Firefox the effect entirely — it took
    backdrop-filter in 103 but never the -webkit- spelling. Left alone the build emits both. */
-.veil-soft {
-  inset: -7svh -14vw;
-  backdrop-filter: blur(15px) brightness(0.6);
-  mask-image: radial-gradient(56% 50% at 50% 50%, #000 42%, transparent 100%);
-}
-
-.veil-medium {
-  inset: -9svh -16vw;
+.copy-veil-layer {
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+  /* Close to the copy. Earlier this bled -9svh -16vw, which put the darkening out in the
+     middle of the scene where it belonged to nothing. */
+  inset: -5svh -10vw;
   backdrop-filter: blur(22px) brightness(0.42);
-  mask-image: radial-gradient(62% 58% at 50% 50%, #000 62%, transparent 100%);
-}
+  /* The ending radius must stay under 50%, and that is the whole trick. Above it the
+     gradient is still opaque when it reaches the element's border box, so the box edge
+     does the cutting instead of the gradient — a straight line of darkness across the
+     scene, which is exactly what a mask is there to prevent. At 48%/46% the mask closes
+     on its own, inside the box, and there is no edge to see.
 
-.veil-strong {
-  inset: -10svh -18vw;
-  backdrop-filter: blur(28px) brightness(0.3);
-  mask-image: radial-gradient(64% 60% at 50% 50%, #000 68%, transparent 100%);
+     The stops are a curve rather than one ramp: a single linear falloff has a visible
+     start, and the eye finds it. Five stops easing off make the transition read as
+     depth. */
+  mask-image: radial-gradient(
+    48% 46% at 50% 50%,
+    #000 0%,
+    rgba(0, 0, 0, 0.94) 30%,
+    rgba(0, 0, 0, 0.72) 48%,
+    rgba(0, 0, 0, 0.42) 67%,
+    rgba(0, 0, 0, 0.15) 85%,
+    transparent 100%
+  );
 }
 
 /* backdrop-filter is sampled per frame against a canvas that is already claiming the frame
-   budget. Anyone who has asked for less motion gets the cheap version instead — one wash
-   for all three, since the comparison being run here is not one they will see. */
+   budget. Anyone who has asked for less motion gets the cheap version instead. Same shape
+   of falloff, painted rather than sampled. */
 @media (prefers-reduced-motion: reduce) {
   .copy-veil-layer {
     backdrop-filter: none;
-    background: radial-gradient(62% 58% at 50% 50%, rgba(5, 5, 16, 0.82) 45%, transparent 100%);
+    background: radial-gradient(
+      48% 46% at 50% 50%,
+      rgba(5, 5, 16, 0.8) 0%,
+      rgba(5, 5, 16, 0.6) 48%,
+      rgba(5, 5, 16, 0.32) 67%,
+      transparent 100%
+    );
   }
 }
 

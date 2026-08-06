@@ -25,10 +25,6 @@ type SectionProps = {
   // a whole empty screen before the first title is the one place the pause costs more than
   // it buys. Every later approach has an astre flying by to fill it.
   approach?: 'full' | 'short';
-  // Temporary: how hard this section's veil defocuses the scene behind its copy. One
-  // strength per section so the three can be compared by scrolling. Collapse to the
-  // winner and drop this prop once picked — see .veil-* in index.css.
-  veil?: 'soft' | 'medium' | 'strong';
   children: ReactNode;
 };
 
@@ -39,7 +35,6 @@ const Section = ({
   final,
   astre,
   approach = 'full',
-  veil = 'medium',
   children,
 }: SectionProps) => {
   const placement =
@@ -81,7 +76,7 @@ const Section = ({
           >
             {/* the copy's own patch of calm — see .copy-veil-layer, and .hero-veil above it
                 for why this one defocuses instead of darkening */}
-            <div aria-hidden className={`copy-veil-layer veil-${veil}`} />
+            <div aria-hidden className="copy-veil-layer" />
             <div className="relative">
               <span
                 aria-hidden
@@ -226,9 +221,7 @@ export const App = () => {
           </div>
         </section>
 
-        {/* One veil strength per section for the moment — scroll 01 → 02 → 03 to compare
-            them against the real scene, then keep one and drop the prop. */}
-        <Section index="01" title={t.about.title} astre="planet" approach="short" veil="soft">
+        <Section index="01" title={t.about.title} astre="planet" approach="short">
           <p className="text-lg leading-relaxed text-white md:text-xl">
             <Ignite astre="planet">
               {t.about.before}
@@ -243,7 +236,7 @@ export const App = () => {
           </p>
         </Section>
 
-        <Section index="02" title={t.experience.title} align="right" astre="blackHole" veil="medium">
+        <Section index="02" title={t.experience.title} align="right" astre="blackHole">
           <div className="space-y-8 md:space-y-10">
             {t.experience.entries.map((entry) => (
               <div key={entry.title}>
@@ -264,7 +257,7 @@ export const App = () => {
           </div>
         </Section>
 
-        <Section index="03" title={t.projects.title} astre="pulsar" veil="strong">
+        <Section index="03" title={t.projects.title} astre="pulsar">
           <div className="space-y-8 md:space-y-10">
             {t.projects.items.map((project) => (
               <div key={project.title}>
