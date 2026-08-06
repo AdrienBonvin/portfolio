@@ -243,19 +243,19 @@ main button {
   );
 }
 
-/* The same job as hero-veil, for the section copy — but defocusing rather than darkening,
-   and that difference is the whole point. hero-veil records where paint runs out of road:
-   a wash heavy enough to hold a letter edge also erased the starfield, so it had to stay
-   barely there, which over the black hole's particle halo is not nearly enough.
+/* The same job as hero-veil, for the section copy, and by the same means in the end.
 
-   Blur has no such ceiling. It takes the high frequency out of the backdrop and leaves the
-   light: the astre still reads behind the words, it just stops competing with them at the
-   scale of a letterform. The brightness knock is small on purpose — the blur is doing the
-   work, the dimming only seats it.
+   This started as a backdrop-filter, on the argument that blur has no ceiling where paint
+   has one: hero-veil records that a wash heavy enough to hold a letter edge also erased the
+   starfield, so it had to stay barely there. That argument was right about paint and wrong
+   about what it cost. backdrop-filter is resampled every frame against a canvas that is
+   already spending the whole budget, and it made the page lag on hardware that is not this
+   one — measured here at a flat 60fps either way, which is precisely why it shipped.
 
-   Standard backdrop-filter only, no hand-written -webkit- alias. Writing the pair collapses
-   it to the alias alone in minification, which costs Firefox the effect entirely — it took
-   backdrop-filter in 103 but never the -webkit- spelling. Left alone the build emits both. */
+   So: paint, but shaped. The ceiling hero-veil hit came from a flat wash over a whole
+   screen. A localised gradient with a long falloff darkens where the words are and lets go
+   before it reaches anything else, and the starfield survives it. Costs nothing on any
+   device, which is the only version of this that can be trusted on a phone. */
 .copy-veil-layer {
   position: absolute;
   z-index: -1;
@@ -263,40 +263,49 @@ main button {
   /* Close to the copy. Earlier this bled -9svh -16vw, which put the darkening out in the
      middle of the scene where it belonged to nothing. */
   inset: -5svh -10vw;
-  backdrop-filter: blur(22px) brightness(0.42);
-  /* The ending radius must stay under 50%, and that is the whole trick. Above it the
-     gradient is still opaque when it reaches the element's border box, so the box edge
-     does the cutting instead of the gradient — a straight line of darkness across the
-     scene, which is exactly what a mask is there to prevent. At 48%/46% the mask closes
-     on its own, inside the box, and there is no edge to see.
+  /* The ending radius must stay under 50%. Above it the gradient is still opaque when it
+     reaches the element's border box, so the box edge does the cutting — a straight line of
+     darkness across the scene, which is the one thing this must never do. At 48%/46% it
+     closes on its own, inside the box.
 
-     The stops are a curve rather than one ramp: a single linear falloff has a visible
-     start, and the eye finds it. Five stops easing off make the transition read as
-     depth. */
-  mask-image: radial-gradient(
+     Stops as a curve, not one ramp: a single linear falloff has a visible start and the eye
+     finds it. Five easing off read as depth. */
+  background: radial-gradient(
     48% 46% at 50% 50%,
-    #000 0%,
-    rgba(0, 0, 0, 0.94) 30%,
-    rgba(0, 0, 0, 0.72) 48%,
-    rgba(0, 0, 0, 0.42) 67%,
-    rgba(0, 0, 0, 0.15) 85%,
+    rgba(5, 5, 16, 0.88) 0%,
+    rgba(5, 5, 16, 0.82) 30%,
+    rgba(5, 5, 16, 0.62) 48%,
+    rgba(5, 5, 16, 0.36) 67%,
+    rgba(5, 5, 16, 0.13) 85%,
     transparent 100%
   );
 }
 
-/* backdrop-filter is sampled per frame against a canvas that is already claiming the frame
-   budget. Anyone who has asked for less motion gets the cheap version instead. Same shape
-   of falloff, painted rather than sampled. */
+/* The veil keeps the copy's hours. Mobile only, because that is the only viewport where the
+   copy has hours to keep — it waits there in the dark until its astre is tapped, and a veil
+   left on through that is a patch of shadow sitting in the scene with nothing inside it.
+   Desktop copy is always on screen, so its veil always is too. */
+@media (max-width: 767px) {
+  .copy-veil-layer.is-dark {
+    opacity: 0;
+  }
+
+  /* Slightly quicker than the 620ms wave and with no delay, so the ground is already dark
+     as the first words land on it rather than arriving underneath them. */
+  .copy-veil-layer.is-lit {
+    animation: veil-in 420ms ease-out backwards;
+  }
+}
+
+@keyframes veil-in {
+  from {
+    opacity: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .copy-veil-layer {
-    backdrop-filter: none;
-    background: radial-gradient(
-      48% 46% at 50% 50%,
-      rgba(5, 5, 16, 0.8) 0%,
-      rgba(5, 5, 16, 0.6) 48%,
-      rgba(5, 5, 16, 0.32) 67%,
-      transparent 100%
-    );
+  .copy-veil-layer.is-lit {
+    animation: none;
   }
 }
 

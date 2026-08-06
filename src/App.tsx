@@ -4,6 +4,7 @@ import { CursorGlow } from './CursorGlow';
 import { MiniMap } from './MiniMap';
 import { AstreHint } from './AstreHint';
 import { Ignite, Settle } from './Ignite';
+import { useReveal } from './reveal';
 import { LangToggle } from './LangToggle';
 import { journeyProgress, scrollState } from './scrollState';
 import { useT, LINKS } from './i18n';
@@ -39,6 +40,9 @@ const Section = ({
 }: SectionProps) => {
   const placement =
     align === 'center' ? 'mx-auto text-center' : align === 'right' ? 'ml-auto' : 'mr-auto';
+  // The veil follows the copy it sits under: on mobile the block waits in the dark until its
+  // astre is tapped, and shadow with nothing in it is just a stain on the scene.
+  const { state: revealState } = useReveal(astre);
 
   return (
     // svh: sized to the small viewport so the collapsing mobile URL bar never shifts the layout
@@ -76,7 +80,7 @@ const Section = ({
           >
             {/* the copy's own patch of calm — see .copy-veil-layer, and .hero-veil above it
                 for why this one defocuses instead of darkening */}
-            <div aria-hidden className="copy-veil-layer" />
+            <div aria-hidden className={`copy-veil-layer is-${revealState}`} />
             <div className="relative">
               <span
                 aria-hidden
