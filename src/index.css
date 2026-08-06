@@ -252,31 +252,47 @@ main button {
    light: the astre still reads behind the words, it just stops competing with them at the
    scale of a letterform. The brightness knock is small on purpose — the blur is doing the
    work, the dimming only seats it. */
-.copy-veil {
+.copy-veil-layer {
   position: absolute;
-  /* bled well off the copy, same reason as hero-veil: the falloff needs room */
-  inset: -9svh -16vw;
   z-index: -1;
   pointer-events: none;
-  /* Standard property only, on purpose. Hand-writing the -webkit- alias next to it makes
-     Lightning CSS collapse the pair down to the alias alone, which costs Firefox the
-     effect entirely — it took backdrop-filter in 103 but never the -webkit- spelling.
-     Left to itself the build emits both. Same for the mask below. */
-  backdrop-filter: blur(22px) brightness(0.42);
-  /* Feathered, or the blur stops on a straight line and the copy reads as a card pasted
-     over the scene. The mask is what keeps this a soft spot in the scenery.
+}
 
-     The solid core has to cover the copy itself — at 42% it stopped inside the text block
-     and the grid lines carried on straight through the words, which looked like the veil
-     was not there at all. 62% puts the whole paragraph in the flat part and leaves the
-     falloff for the bleed. */
+/* The three strengths, one per section, so the call gets made by scrolling the real thing
+   rather than by looking at a mock of it. Temporary: keep the winner, delete the other two
+   and the `veil` prop in App.tsx.
+
+   Each is a triple — how far the layer bleeds past the copy, how hard it defocuses, and how
+   much of the mask stays flat before it falls off. They move together on purpose: a wider
+   bleed with a narrow flat core just moves the visible edge inward, and more blur with less
+   dimming reads as fog rather than as depth.
+
+   Standard backdrop-filter only, no hand-written -webkit- alias. Writing the pair collapses
+   it to the alias alone in minification, which costs Firefox the effect entirely — it took
+   backdrop-filter in 103 but never the -webkit- spelling. Left alone the build emits both. */
+.veil-soft {
+  inset: -7svh -14vw;
+  backdrop-filter: blur(15px) brightness(0.6);
+  mask-image: radial-gradient(56% 50% at 50% 50%, #000 42%, transparent 100%);
+}
+
+.veil-medium {
+  inset: -9svh -16vw;
+  backdrop-filter: blur(22px) brightness(0.42);
   mask-image: radial-gradient(62% 58% at 50% 50%, #000 62%, transparent 100%);
 }
 
+.veil-strong {
+  inset: -10svh -18vw;
+  backdrop-filter: blur(28px) brightness(0.3);
+  mask-image: radial-gradient(64% 60% at 50% 50%, #000 68%, transparent 100%);
+}
+
 /* backdrop-filter is sampled per frame against a canvas that is already claiming the frame
-   budget. Anyone who has asked for less motion gets the cheap version instead. */
+   budget. Anyone who has asked for less motion gets the cheap version instead — one wash
+   for all three, since the comparison being run here is not one they will see. */
 @media (prefers-reduced-motion: reduce) {
-  .copy-veil {
+  .copy-veil-layer {
     backdrop-filter: none;
     background: radial-gradient(62% 58% at 50% 50%, rgba(5, 5, 16, 0.82) 45%, transparent 100%);
   }
