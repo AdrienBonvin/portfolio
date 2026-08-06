@@ -211,7 +211,7 @@ export const App = () => {
             {t.hero.kicker}
           </p>
           <HeroName />
-          <p className="mt-5 max-w-md text-base text-white/70 md:mt-6 md:text-lg">
+          <p className="mt-5 max-w-md text-base text-white/90 md:mt-6 md:text-lg">
             {t.hero.tagline}
           </p>
           {/* mobile: parked at the bottom edge rather than a fixed gap under the tagline,
@@ -222,7 +222,7 @@ export const App = () => {
         </section>
 
         <Section index="01" title={t.about.title} astre="planet" approach="short">
-          <p className="text-lg leading-relaxed text-white/85 md:text-xl">
+          <p className="text-lg leading-relaxed text-white md:text-xl">
             <Ignite astre="planet">
               {t.about.before}
               <ExternalLink
@@ -243,13 +243,13 @@ export const App = () => {
                 <h3 className="text-xl font-bold md:text-2xl">
                   <Ignite astre="blackHole">{entry.title}</Ignite>
                 </h3>
-                <p className="mt-1 text-sm tracking-widest text-white/70 uppercase md:text-white/50">
+                <p className="mt-1 text-sm tracking-widest text-white/75 uppercase">
                   <Ignite astre="blackHole">{entry.period}</Ignite>
                 </p>
                 <Settle astre="blackHole">
                   <TagPills tags={entry.tags} />
                 </Settle>
-                <p className="mt-4 text-lg text-white/90 md:text-white/75">
+                <p className="mt-4 text-lg text-white">
                   <Ignite astre="blackHole">{entry.text}</Ignite>
                 </p>
               </div>
@@ -267,7 +267,7 @@ export const App = () => {
                 <Settle astre="pulsar">
                   <TagPills tags={project.tags} />
                 </Settle>
-                <p className="mt-4 text-lg text-white/90 md:text-white/75">
+                <p className="mt-4 text-lg text-white">
                   <Ignite astre="pulsar">{project.text}</Ignite>
                 </p>
                 <Settle astre="pulsar">
@@ -291,7 +291,7 @@ export const App = () => {
         </Section>
 
         <Section index="04" title={t.contact.title} align="center" final>
-          <p className="text-lg text-white/85 md:text-xl">
+          <p className="text-lg text-white md:text-xl">
             {t.contact.text}
           </p>
           {/* tighter tracking on mobile: at 0.3em this runs edge to edge on a phone
