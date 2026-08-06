@@ -72,8 +72,11 @@ const Section = ({
             />
           )}
           <div
-            className={final ? 'flex min-h-svh flex-col justify-center md:block md:min-h-0' : ''}
+            className={`relative ${final ? 'flex min-h-svh flex-col justify-center md:block md:min-h-0' : ''}`}
           >
+            {/* the copy's own patch of calm — see .copy-veil, and .hero-veil above it for
+                why this one defocuses instead of darkening */}
+            <div aria-hidden className="copy-veil" />
             <div className="relative">
               <span
                 aria-hidden
@@ -83,7 +86,7 @@ const Section = ({
               </span>
               <h2
                 data-astre={astre}
-                className="relative mb-4 bg-gradient-to-r from-neon-violet via-white to-neon-cyan bg-clip-text text-5xl font-bold text-transparent drop-shadow-[0_0_30px_rgba(168,85,247,0.5)] md:text-7xl">
+                className="holo-title relative mb-4 bg-gradient-to-r from-neon-violet via-white to-neon-cyan bg-clip-text text-5xl font-bold text-transparent md:text-7xl">
                 {title}
               </h2>
               <div

@@ -36,29 +36,24 @@ html {
   color: white;
 }
 
-/* keeps floating text readable over the starfield */
-.holo-text {
-  text-shadow:
-    0 2px 24px rgba(5, 5, 16, 0.95),
-    0 0 10px rgba(5, 5, 16, 0.9);
-}
+/* Keeps floating text readable over the starfield.
 
-/* Mobile only — desktop's frame keeps the copy clear of the astres and needs none of this.
-   Two blurs of 24px and 10px spread the dark thin and far: a haze over the scenery that
-   never builds contrast where it counts, at the edge of a letter. Three short stops
-   instead — 2px for the edge, 5px for the body, 14px for a soft seat — so the darkening
-   lives against the glyph and the scene still reads between the words.
+   Three short stops — 2px for the edge, 5px for the body, 14px for a soft seat — so the
+   darkening lives against the glyph. This used to be a mobile-only override, on the
+   reasoning that desktop's wider frame keeps the copy clear of the astres. It does not:
+   the black hole's particle halo fills the frame at any width, and the two long blurs
+   desktop used to get (24px and 10px) spread the dark so thin they were near enough to
+   no treatment at all — side by side with an untreated block you cannot pick which is
+   which. Short stops everywhere now.
 
    No stroke here, deliberately: a stroke painted under the fill gives more contrast still,
    but it thickens every letter by half its width, and that extra weight is what made this
    look like a different typeface the first time round. */
-@media (max-width: 767px) {
-  .holo-text {
-    text-shadow:
-      0 1px 2px rgba(5, 5, 16, 0.98),
-      0 0 5px rgba(5, 5, 16, 0.92),
-      0 0 14px rgba(5, 5, 16, 0.65);
-  }
+.holo-text {
+  text-shadow:
+    0 1px 2px rgba(5, 5, 16, 0.98),
+    0 0 5px rgba(5, 5, 16, 0.92),
+    0 0 14px rgba(5, 5, 16, 0.65);
 }
 
 /* ── Copy the scene lights up (Ignite) ───────────────────────────────────────
@@ -205,6 +200,20 @@ main button {
   filter: drop-shadow(0 0 16px #22d3ee);
 }
 
+/* The section titles carry a violet glow for looks, and a glow is the one thing that
+   cannot make them read: it lifts the light immediately around each letter, which is
+   exactly where the contrast against a bright backdrop has to live. Over the particle
+   halo, glow alone makes the type softer rather than brighter. So the contact shadow is
+   listed first and holds the edge; the glow stays behind it doing what it is good at,
+   which is looking like the rest of the scene.
+
+   One class rather than two Tailwind utilities: they would both write --tw-drop-shadow
+   and the second would win. */
+.holo-title {
+  filter: drop-shadow(0 1px 2px rgba(5, 5, 16, 0.95))
+    drop-shadow(0 0 30px rgba(168, 85, 247, 0.5));
+}
+
 /* giant outlined section number behind titles */
 .ghost-number {
   color: transparent;
@@ -232,6 +241,39 @@ main button {
     rgba(5, 5, 16, 0.12) 45%,
     transparent 70%
   );
+}
+
+/* The same job as hero-veil, for the section copy — but defocusing rather than darkening,
+   and that difference is the whole point. hero-veil records where paint runs out of road:
+   a wash heavy enough to hold a letter edge also erased the starfield, so it had to stay
+   barely there, which over the black hole's particle halo is not nearly enough.
+
+   Blur has no such ceiling. It takes the high frequency out of the backdrop and leaves the
+   light: the astre still reads behind the words, it just stops competing with them at the
+   scale of a letterform. The brightness knock is small on purpose — the blur is doing the
+   work, the dimming only seats it. */
+.copy-veil {
+  position: absolute;
+  /* bled well off the copy, same reason as hero-veil: the falloff needs room */
+  inset: -7svh -14vw;
+  z-index: -1;
+  pointer-events: none;
+  backdrop-filter: blur(15px) brightness(0.6);
+  -webkit-backdrop-filter: blur(15px) brightness(0.6);
+  /* Feathered, or the blur stops on a straight line and the copy reads as a card pasted
+     over the scene. The mask is what keeps this a soft spot in the scenery. */
+  mask-image: radial-gradient(56% 50% at 50% 50%, #000 42%, transparent 100%);
+  -webkit-mask-image: radial-gradient(56% 50% at 50% 50%, #000 42%, transparent 100%);
+}
+
+/* backdrop-filter is sampled per frame against a canvas that is already claiming the frame
+   budget. Anyone who has asked for less motion gets the cheap version instead. */
+@media (prefers-reduced-motion: reduce) {
+  .copy-veil {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: radial-gradient(56% 50% at 50% 50%, rgba(5, 5, 16, 0.72) 30%, transparent 100%);
+  }
 }
 
 /* ── Mobile chrome ───────────────────────────────────────────────────────── */
