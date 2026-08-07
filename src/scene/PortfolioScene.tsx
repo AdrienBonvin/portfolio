@@ -876,7 +876,11 @@ const Planet = ({ position, scale = 1, mobile }: CelestialProps) => {
 // the limb turning toward the camera. Click: the disc collapses inward and the
 // hole answers with relativistic jets.
 
-const DISC_INNER = 1.45;
+// Almost on the horizon. A real disc stops at the ISCO, three radii out, and at 1.45 that
+// gap was the most legible thing about the astre — a ring of empty scene between the black
+// and the grains, which read as two objects rather than one. 1.12 leaves just enough for the
+// photon ring (outer edge ~1.035) to sit in.
+const DISC_INNER = 1.12;
 const DISC_OUTER = 5.4;
 // Scratch for the photon ring's per-frame silhouette solve. Module scope because the maths
 // runs every frame and a Vector3 allocated in there is garbage sixty times a second.
@@ -1022,7 +1026,7 @@ const BlackHole = ({ position, scale = 1, mobile }: CelestialProps) => {
     }
     if (photonRing.current && photonMaterial.current) {
       const ring = photonRing.current;
-      const flareScale = 1 + flare.current * 0.35;
+      const flareScale = 1 + flare.current * 0.5;
       // The ring rides the horizon's silhouette, which is not the horizon's outline: seen
       // from d away, a unit sphere hides behind a tangent circle standing 1/d in front of
       // its centre, of radius √(d²−1)/d. Far off the two are indistinguishable; on the
@@ -1040,11 +1044,14 @@ const BlackHole = ({ position, scale = 1, mobile }: CelestialProps) => {
           ring.lookAt(camera.position);
         }
       }
+      // The upper arc is already white, additive and through bloom, so it is clipped at rest
+      // and brightening it further does nothing anyone can see. The tap has to read somewhere
+      // else: the swell above, and the lower arc below, which sits at 0.3 and has the whole
+      // range to itself. It comes up to full, so the ring closes into one bright circle for
+      // as long as the flare lasts and then settles back to being lit on one side only.
       photonMaterial.current.opacity = Math.min(1, 0.9 + flare.current);
-      // the lower arc keeps its distance from the upper one through the flare, or the ring
-      // snaps flat the moment the hole is fed — which is when the tilt reads most
       if (photonNearMaterial.current) {
-        photonNearMaterial.current.opacity = Math.min(0.72, 0.3 + flare.current * 0.55);
+        photonNearMaterial.current.opacity = Math.min(1, 0.3 + flare.current * 0.95);
       }
     }
   });
