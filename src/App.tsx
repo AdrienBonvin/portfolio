@@ -4,6 +4,7 @@ import { CursorGlow } from './CursorGlow';
 import { MiniMap } from './MiniMap';
 import { AstreHint } from './AstreHint';
 import { Ignite, Settle } from './Ignite';
+import { useReveal } from './reveal';
 import { LangToggle } from './LangToggle';
 import { journeyProgress, scrollState } from './scrollState';
 import { useT, LINKS } from './i18n';
@@ -39,6 +40,9 @@ const Section = ({
 }: SectionProps) => {
   const placement =
     align === 'center' ? 'mx-auto text-center' : align === 'right' ? 'ml-auto' : 'mr-auto';
+  // The veil follows the copy it sits under: on mobile the block waits in the dark until its
+  // astre is tapped, and shadow with nothing in it is just a stain on the scene.
+  const { state: revealState } = useReveal(astre);
 
   return (
     // svh: sized to the small viewport so the collapsing mobile URL bar never shifts the layout
@@ -72,8 +76,13 @@ const Section = ({
             />
           )}
           <div
-            className={final ? 'flex min-h-svh flex-col justify-center md:block md:min-h-0' : ''}
+            className={`relative ${final ? 'flex min-h-svh flex-col justify-center md:block md:min-h-0' : ''}`}
           >
+            {/* The copy's own patch of calm — see .copy-veil-layer, and .hero-veil above it.
+                Not on the closing screen: the galaxy is what the reader is left looking at,
+                and darkening a hole in the middle of it to seat three lines of contact copy
+                spends the arrival to solve a legibility problem the arrival does not have. */}
+            {!final && <div aria-hidden className={`copy-veil-layer is-${revealState}`} />}
             <div className="relative">
               <span
                 aria-hidden
@@ -83,7 +92,7 @@ const Section = ({
               </span>
               <h2
                 data-astre={astre}
-                className="relative mb-4 bg-gradient-to-r from-neon-violet via-white to-neon-cyan bg-clip-text text-5xl font-bold text-transparent drop-shadow-[0_0_30px_rgba(168,85,247,0.5)] md:text-7xl">
+                className="holo-title relative mb-4 bg-gradient-to-r from-neon-violet via-white to-neon-cyan bg-clip-text text-5xl font-bold text-transparent md:text-7xl">
                 {title}
               </h2>
               <div
@@ -208,7 +217,7 @@ export const App = () => {
             {t.hero.kicker}
           </p>
           <HeroName />
-          <p className="mt-5 max-w-md text-base text-white/70 md:mt-6 md:text-lg">
+          <p className="mt-5 max-w-md text-base text-white/90 md:mt-6 md:text-lg">
             {t.hero.tagline}
           </p>
           {/* mobile: parked at the bottom edge rather than a fixed gap under the tagline,
@@ -219,7 +228,7 @@ export const App = () => {
         </section>
 
         <Section index="01" title={t.about.title} astre="planet" approach="short">
-          <p className="text-lg leading-relaxed text-white/85 md:text-xl">
+          <p className="text-lg leading-relaxed text-white md:text-xl">
             <Ignite astre="planet">
               {t.about.before}
               <ExternalLink
@@ -240,13 +249,13 @@ export const App = () => {
                 <h3 className="text-xl font-bold md:text-2xl">
                   <Ignite astre="blackHole">{entry.title}</Ignite>
                 </h3>
-                <p className="mt-1 text-sm tracking-widest text-white/70 uppercase md:text-white/50">
+                <p className="mt-1 text-sm tracking-widest text-white/75 uppercase">
                   <Ignite astre="blackHole">{entry.period}</Ignite>
                 </p>
                 <Settle astre="blackHole">
                   <TagPills tags={entry.tags} />
                 </Settle>
-                <p className="mt-4 text-lg text-white/90 md:text-white/75">
+                <p className="mt-4 text-lg text-white">
                   <Ignite astre="blackHole">{entry.text}</Ignite>
                 </p>
               </div>
@@ -264,7 +273,7 @@ export const App = () => {
                 <Settle astre="pulsar">
                   <TagPills tags={project.tags} />
                 </Settle>
-                <p className="mt-4 text-lg text-white/90 md:text-white/75">
+                <p className="mt-4 text-lg text-white">
                   <Ignite astre="pulsar">{project.text}</Ignite>
                 </p>
                 <Settle astre="pulsar">
@@ -288,7 +297,7 @@ export const App = () => {
         </Section>
 
         <Section index="04" title={t.contact.title} align="center" final>
-          <p className="text-lg text-white/85 md:text-xl">
+          <p className="text-lg text-white md:text-xl">
             {t.contact.text}
           </p>
           {/* tighter tracking on mobile: at 0.3em this runs edge to edge on a phone

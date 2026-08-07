@@ -56,9 +56,13 @@ if (typeof window !== 'undefined') {
   );
 }
 
-export const useReveal = (astre: AstreKey) => {
+// The key is optional because not every block belongs to an astre — the closing section has
+// none, and nothing gates its copy. Absent a key the answer is 'lit': there is no astre that
+// could light this, so it is already showing.
+export const useReveal = (astre?: AstreKey) => {
   const [, bump] = useState(0);
   useEffect(() => {
+    if (!astre) return;
     // Only re-render when *this* astre changes. Every reveal used to wake all seventeen
     // subscribers, and each Ignite re-splits its copy into word spans when it renders, so
     // one tap rebuilt every paragraph on the page instead of the three it lit.
@@ -72,5 +76,6 @@ export const useReveal = (astre: AstreKey) => {
     window.addEventListener(REVEAL_EVENT, sync);
     return () => window.removeEventListener(REVEAL_EVENT, sync);
   }, [astre]);
+  if (!astre) return { state: 'lit' as RevealState, origin: undefined };
   return { state: states.get(astre) ?? 'dark', origin: origins.get(astre) };
 };

@@ -36,29 +36,24 @@ html {
   color: white;
 }
 
-/* keeps floating text readable over the starfield */
-.holo-text {
-  text-shadow:
-    0 2px 24px rgba(5, 5, 16, 0.95),
-    0 0 10px rgba(5, 5, 16, 0.9);
-}
+/* Keeps floating text readable over the starfield.
 
-/* Mobile only — desktop's frame keeps the copy clear of the astres and needs none of this.
-   Two blurs of 24px and 10px spread the dark thin and far: a haze over the scenery that
-   never builds contrast where it counts, at the edge of a letter. Three short stops
-   instead — 2px for the edge, 5px for the body, 14px for a soft seat — so the darkening
-   lives against the glyph and the scene still reads between the words.
+   Three short stops — 2px for the edge, 5px for the body, 14px for a soft seat — so the
+   darkening lives against the glyph. This used to be a mobile-only override, on the
+   reasoning that desktop's wider frame keeps the copy clear of the astres. It does not:
+   the black hole's particle halo fills the frame at any width, and the two long blurs
+   desktop used to get (24px and 10px) spread the dark so thin they were near enough to
+   no treatment at all — side by side with an untreated block you cannot pick which is
+   which. Short stops everywhere now.
 
    No stroke here, deliberately: a stroke painted under the fill gives more contrast still,
    but it thickens every letter by half its width, and that extra weight is what made this
    look like a different typeface the first time round. */
-@media (max-width: 767px) {
-  .holo-text {
-    text-shadow:
-      0 1px 2px rgba(5, 5, 16, 0.98),
-      0 0 5px rgba(5, 5, 16, 0.92),
-      0 0 14px rgba(5, 5, 16, 0.65);
-  }
+.holo-text {
+  text-shadow:
+    0 1px 2px rgba(5, 5, 16, 0.98),
+    0 0 5px rgba(5, 5, 16, 0.92),
+    0 0 14px rgba(5, 5, 16, 0.65);
 }
 
 /* ── Copy the scene lights up (Ignite) ───────────────────────────────────────
@@ -205,6 +200,20 @@ main button {
   filter: drop-shadow(0 0 16px #22d3ee);
 }
 
+/* The section titles carry a violet glow for looks, and a glow is the one thing that
+   cannot make them read: it lifts the light immediately around each letter, which is
+   exactly where the contrast against a bright backdrop has to live. Over the particle
+   halo, glow alone makes the type softer rather than brighter. So the contact shadow is
+   listed first and holds the edge; the glow stays behind it doing what it is good at,
+   which is looking like the rest of the scene.
+
+   One class rather than two Tailwind utilities: they would both write --tw-drop-shadow
+   and the second would win. */
+.holo-title {
+  filter: drop-shadow(0 1px 2px rgba(5, 5, 16, 0.95))
+    drop-shadow(0 0 30px rgba(168, 85, 247, 0.5));
+}
+
 /* giant outlined section number behind titles */
 .ghost-number {
   color: transparent;
@@ -232,6 +241,72 @@ main button {
     rgba(5, 5, 16, 0.12) 45%,
     transparent 70%
   );
+}
+
+/* The same job as hero-veil, for the section copy, and by the same means in the end.
+
+   This started as a backdrop-filter, on the argument that blur has no ceiling where paint
+   has one: hero-veil records that a wash heavy enough to hold a letter edge also erased the
+   starfield, so it had to stay barely there. That argument was right about paint and wrong
+   about what it cost. backdrop-filter is resampled every frame against a canvas that is
+   already spending the whole budget, and it made the page lag on hardware that is not this
+   one — measured here at a flat 60fps either way, which is precisely why it shipped.
+
+   So: paint, but shaped. The ceiling hero-veil hit came from a flat wash over a whole
+   screen. A localised gradient with a long falloff darkens where the words are and lets go
+   before it reaches anything else, and the starfield survives it. Costs nothing on any
+   device, which is the only version of this that can be trusted on a phone. */
+.copy-veil-layer {
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+  /* Close to the copy. Earlier this bled -9svh -16vw, which put the darkening out in the
+     middle of the scene where it belonged to nothing. */
+  inset: -5svh -10vw;
+  /* The ending radius must stay under 50%. Above it the gradient is still opaque when it
+     reaches the element's border box, so the box edge does the cutting — a straight line of
+     darkness across the scene, which is the one thing this must never do. At 48%/46% it
+     closes on its own, inside the box.
+
+     Stops as a curve, not one ramp: a single linear falloff has a visible start and the eye
+     finds it. Five easing off read as depth. */
+  background: radial-gradient(
+    48% 46% at 50% 50%,
+    rgba(5, 5, 16, 0.88) 0%,
+    rgba(5, 5, 16, 0.82) 30%,
+    rgba(5, 5, 16, 0.62) 48%,
+    rgba(5, 5, 16, 0.36) 67%,
+    rgba(5, 5, 16, 0.13) 85%,
+    transparent 100%
+  );
+}
+
+/* The veil keeps the copy's hours. Mobile only, because that is the only viewport where the
+   copy has hours to keep — it waits there in the dark until its astre is tapped, and a veil
+   left on through that is a patch of shadow sitting in the scene with nothing inside it.
+   Desktop copy is always on screen, so its veil always is too. */
+@media (max-width: 767px) {
+  .copy-veil-layer.is-dark {
+    opacity: 0;
+  }
+
+  /* Slightly quicker than the 620ms wave and with no delay, so the ground is already dark
+     as the first words land on it rather than arriving underneath them. */
+  .copy-veil-layer.is-lit {
+    animation: veil-in 420ms ease-out backwards;
+  }
+}
+
+@keyframes veil-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .copy-veil-layer.is-lit {
+    animation: none;
+  }
 }
 
 /* ── Mobile chrome ───────────────────────────────────────────────────────── */
