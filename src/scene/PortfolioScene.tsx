@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { Float, Grid, Html, Stars, Trail, useCursor } from '@react-three/drei';
+import { Billboard, Float, Grid, Html, Stars, Trail, useCursor } from '@react-three/drei';
 import { Bloom, EffectComposer } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import { isTouchDevice, scrollState } from '../scrollState';
@@ -1078,51 +1078,56 @@ const BlackHole = ({ position, scale = 1, mobile }: CelestialProps) => {
             blending={THREE.AdditiveBlending}
           />
         </mesh>
-        {/* Photon ring, hugging the horizon; flares when the hole is fed.
+        {/* Photon ring, on the horizon's own outline; flares when the hole is fed.
 
-            Two half-arcs rather than one torus, because the disc cannot occlude it. The ring
-            sits at 1.08 and the disc's inner edge at DISC_INNER, so the two never meet in 3D
-            — they only overlap once this tilted plane is projected to the screen, and there
-            the grains ought to pass in front of the lower arc. They cannot: both are
-            additively blended with no depth write, and addition has no notion of in front.
-            A full-strength torus therefore read as an ellipse painted over the scene,
-            flattening the perspective the tilt exists to give.
+            Billboarded, so it is a flat circle facing the reader rather than a torus lying
+            in the disc's plane. A sphere's silhouette is a circle from every angle, so a
+            ring that is to sit *on that edge* has to ignore the 0.9 tilt the disc lives in —
+            inside that group it drew as an ellipse cutting across the black instead of
+            tracing its border. 1.02 to 1.06 against a horizon of 1: just clear of the
+            silhouette, no z-fighting with the sphere's tangent.
 
-            So the lower arc is simply dimmer, and where the grains cross it they win. It is
-            a cheat — nothing is occluding anything — but it is the only one available short
-            of a depth pre-pass for the disc, and it buys back the read.
+            Still two arcs. The disc cannot occlude it — the ring sits at ~1.04 and the disc's
+            inner edge at DISC_INNER, so they never meet in 3D, they only overlap in
+            projection, and everything here is additively blended with no depth write, where
+            addition has no notion of in front. So the lower arc is simply dimmer and the
+            grains crossing it win. A cheat, and the only one available short of a depth
+            pre-pass for the disc.
 
-            Halves are named for where they land on screen, not for near and far: the group's
-            rotation.x of 0.9 tilts local +Y up and *toward* the camera, so the arc that
-            climbs over the horizon is the near one, and guessing the other way round is easy. */}
-        <group ref={photonRing}>
-          {/* upper arc — clear of the grains, so it carries the ring at full strength */}
-          <mesh>
-            <torusGeometry args={[1.08, 0.026, 12, 64, Math.PI]} />
-            <meshBasicMaterial
-              ref={photonMaterial}
-              color="#ffffff"
-              transparent
-              opacity={0.9}
-              toneMapped={false}
-              depthWrite={false}
-              blending={THREE.AdditiveBlending}
-            />
-          </mesh>
-          {/* lower arc — the disc's inner grains pile up over it, so it gives way */}
-          <mesh rotation={[0, 0, Math.PI]}>
-            <torusGeometry args={[1.08, 0.026, 12, 64, Math.PI]} />
-            <meshBasicMaterial
-              ref={photonNearMaterial}
-              color="#ffffff"
-              transparent
-              opacity={0.3}
-              toneMapped={false}
-              depthWrite={false}
-              blending={THREE.AdditiveBlending}
-            />
-          </mesh>
-        </group>
+            Arcs are named for where they land on screen, which under a billboard is exactly
+            what thetaStart measures: 0 → π is the upper half, π → 2π the lower. */}
+        <Billboard>
+          <group ref={photonRing}>
+            {/* upper arc — clear of the grains, so it carries the ring at full strength */}
+            <mesh>
+              <ringGeometry args={[1.02, 1.06, 96, 1, 0, Math.PI]} />
+              <meshBasicMaterial
+                ref={photonMaterial}
+                color="#ffffff"
+                transparent
+                opacity={0.9}
+                toneMapped={false}
+                depthWrite={false}
+                side={THREE.DoubleSide}
+                blending={THREE.AdditiveBlending}
+              />
+            </mesh>
+            {/* lower arc — the disc's inner grains pile up over it, so it gives way */}
+            <mesh>
+              <ringGeometry args={[1.02, 1.06, 96, 1, Math.PI, Math.PI]} />
+              <meshBasicMaterial
+                ref={photonNearMaterial}
+                color="#ffffff"
+                transparent
+                opacity={0.3}
+                toneMapped={false}
+                depthWrite={false}
+                side={THREE.DoubleSide}
+                blending={THREE.AdditiveBlending}
+              />
+            </mesh>
+          </group>
+        </Billboard>
         {/* accretion disc */}
         <points geometry={discGeometry}>
           <shaderMaterial
