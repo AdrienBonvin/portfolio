@@ -1949,12 +1949,27 @@ export const PortfolioScene = () => {
     // in the scene, under the finger
     const ray = target.sub(camera.position).normalize();
     const start = camera.position.clone().addScaledVector(ray, 6);
-    // Where it goes is not that ray. A ray through the corner of the frame is already some
-    // 30° off the camera's axis at fov 60, so shooting along it flung the comet sideways
-    // out of frame — worse the further from centre you clicked. It leaves down the camera's
-    // own axis instead: away from the reader, straight through the screen, the way a thing
-    // thrown at the glass would go.
-    const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+    // Where it goes is the ray, plus a little. Which is worth spelling out, because the
+    // obvious reading of "straight through the screen" — send it down the camera's own axis
+    // — is the one thing that does not look like that. Parallel lines converge on the
+    // vanishing point, so a shot running dead down the axis projects as sliding toward the
+    // middle of the frame: from the right edge it is a third of the way in within a second.
+    // Every comet looked pulled to the centre.
+    //
+    // The ray is the neutral line, not the axis. A shot along it holds its place in frame
+    // exactly while it recedes, which is what going straight away from the reader actually
+    // looks like. Its world angle is wide — 33° at a corner — but that angle is never seen,
+    // only the screen track is. What made the first version fling comets out of frame was
+    // the random kick of up to 0.4 sitting on top of it, not the ray.
+    const dir = ray.clone();
+    // Then a touch outward on top, so the track opens away from the middle rather than
+    // merely holding still, and opens more the further out the click was — the term carries
+    // the click's own sign and magnitude, so the centre of the frame gets nothing. 0.06 is
+    // about 8% of drift by the time it is gone; below that it does not read at all.
+    const OUTWARD = 0.06;
+    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+    const up = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
+    dir.addScaledVector(right, ndcX * OUTWARD).addScaledVector(up, ndcY * OUTWARD);
     // Enough scatter that two shots are never the same line, not enough to read as an angle:
     // 0.09 off a unit vector is about 5°.
     const angle = Math.random() * Math.PI * 2;
