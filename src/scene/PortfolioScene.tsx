@@ -952,7 +952,6 @@ const BlackHole = ({ position, scale = 1, mobile }: CelestialProps) => {
   const photonRing = useRef<THREE.Group>(null);
   const photonMaterial = useRef<THREE.MeshBasicMaterial>(null);
   const photonNearMaterial = useRef<THREE.MeshBasicMaterial>(null);
-  const lens = useRef<THREE.ShaderMaterial>(null);
   const discClock = useRef(0);
   const discBoost = useRef(0);
   // -1 = idle, otherwise the collapse's progress
@@ -997,15 +996,6 @@ const BlackHole = ({ position, scale = 1, mobile }: CelestialProps) => {
     [],
   );
   const jetUniforms = useMemo(() => ({ uJet: { value: 0 }, uScale: { value: 600 } }), []);
-  const lensUniforms = useMemo(
-    () => ({
-      uColor: { value: new THREE.Color('#c4b5fd') },
-      uIntensity: { value: 1 },
-      uFog: { value: fogRange() },
-    }),
-    [],
-  );
-
   useFrame(({ camera, size, viewport }, delta) => {
     discBoost.current = THREE.MathUtils.damp(discBoost.current, 0, 1.3, delta);
     flare.current = THREE.MathUtils.damp(flare.current, 0, 2.6, delta);
@@ -1057,7 +1047,6 @@ const BlackHole = ({ position, scale = 1, mobile }: CelestialProps) => {
         photonNearMaterial.current.opacity = Math.min(0.72, 0.3 + flare.current * 0.55);
       }
     }
-    if (lens.current) lens.current.uniforms.uIntensity.value = 0.7 + flare.current * 3;
   });
 
   const detonate = (origin: { x: number; y: number }) => {
@@ -1083,20 +1072,6 @@ const BlackHole = ({ position, scale = 1, mobile }: CelestialProps) => {
         <mesh>
           <sphereGeometry args={[1, 32, 32]} />
           <meshBasicMaterial color="#000000" />
-        </mesh>
-        {/* lensing halo — light bent around the far side of the horizon */}
-        <mesh scale={1.45}>
-          <sphereGeometry args={[1, 32, 32]} />
-          <shaderMaterial
-            ref={lens}
-            uniforms={lensUniforms}
-            vertexShader={GLOW_VERT}
-            fragmentShader={ATMOSPHERE_FRAG}
-            transparent
-            depthWrite={false}
-            side={THREE.BackSide}
-            blending={THREE.AdditiveBlending}
-          />
         </mesh>
         {/* accretion disc */}
         <points geometry={discGeometry}>
@@ -1140,11 +1115,17 @@ const BlackHole = ({ position, scale = 1, mobile }: CelestialProps) => {
           from any distance and any angle, including the flyby.
 
           lookAt rather than a quaternion between vectors: it leaves the roll to the group's
-          own up, and out here that is world up, so the arcs keep their screen halves. */}
+          own up, and out here that is world up, so the arcs keep their screen halves.
+
+          The band runs 0.99 to 1.035, so its inner edge is *inside* the silhouette rather
+          than clear of it, and the horizon trims it: the sphere is opaque and writes depth,
+          the ring is additive and does not, so whatever falls behind the black is discarded
+          and the white starts exactly on the edge. Held off it — the band used to open at
+          1.02 — and a hairline of scene showed between the two. */}
       <group ref={photonRing}>
         {/* upper arc — clear of the grains, so it carries the ring at full strength */}
         <mesh>
-          <ringGeometry args={[1.02, 1.06, 96, 1, 0, Math.PI]} />
+          <ringGeometry args={[0.99, 1.035, 96, 1, 0, Math.PI]} />
           <meshBasicMaterial
             ref={photonMaterial}
             color="#ffffff"
@@ -1158,7 +1139,7 @@ const BlackHole = ({ position, scale = 1, mobile }: CelestialProps) => {
         </mesh>
         {/* lower arc — the disc's inner grains pile up over it, so it gives way */}
         <mesh>
-          <ringGeometry args={[1.02, 1.06, 96, 1, Math.PI, Math.PI]} />
+          <ringGeometry args={[0.99, 1.035, 96, 1, Math.PI, Math.PI]} />
           <meshBasicMaterial
             ref={photonNearMaterial}
             color="#ffffff"
