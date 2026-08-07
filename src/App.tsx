@@ -78,9 +78,11 @@ const Section = ({
           <div
             className={`relative ${final ? 'flex min-h-svh flex-col justify-center md:block md:min-h-0' : ''}`}
           >
-            {/* the copy's own patch of calm — see .copy-veil-layer, and .hero-veil above it
-                for why this one defocuses instead of darkening */}
-            <div aria-hidden className={`copy-veil-layer is-${revealState}`} />
+            {/* The copy's own patch of calm — see .copy-veil-layer, and .hero-veil above it.
+                Not on the closing screen: the galaxy is what the reader is left looking at,
+                and darkening a hole in the middle of it to seat three lines of contact copy
+                spends the arrival to solve a legibility problem the arrival does not have. */}
+            {!final && <div aria-hidden className={`copy-veil-layer is-${revealState}`} />}
             <div className="relative">
               <span
                 aria-hidden
