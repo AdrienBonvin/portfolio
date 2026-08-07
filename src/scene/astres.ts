@@ -58,7 +58,15 @@ const OFFSET: Record<AstreKey, { portrait: [number, number]; desktop: [number, n
   // offsets, so the pass stays a close one — the astre grows at the text's side and only
   // slides wide at the very end.
   planet: { portrait: [1.8, 1.8], desktop: [4, 1.2] },
-  blackHole: { portrait: [-1.7, 2.6], desktop: [-4.5, 1.5] },
+  // Portrait x is half its siblings' because this astre is twice as wide: the disc reaches
+  // 5.4 out where the planet's ring stops at 3.6, so the same offset costs it far more of
+  // the frame. At -1.7 the horizon sat 21% from the left edge as its section opened and was
+  // gone off it entirely from ~6 units out — the back half of Experience played with the
+  // black hole's own black hole out of shot, only the disc sweeping past. -0.8 holds it
+  // between 33% and 40% for the whole approach and only lets it slide out at the very end,
+  // where the disc fills the frame anyway. Not centred outright: at 0.8 sideways and 1.2
+  // below, the track still clears the horizon (radius 0.85 here) by half a unit.
+  blackHole: { portrait: [-0.8, 2.6], desktop: [-4.5, 1.5] },
   // Nearer the middle of the frame than its siblings: it is the last astre before the
   // galaxy, and the finale is worth looking straight at. 0.35 rather than the ~1.7 the
   // others use because this one is passed at close range, and perspective magnifies the
