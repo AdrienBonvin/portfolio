@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { Billboard, Float, Grid, Html, Stars, Trail, useCursor } from '@react-three/drei';
+import { Float, Grid, Html, Stars, Trail, useCursor } from '@react-three/drei';
 import { Bloom, EffectComposer } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import { isTouchDevice, scrollState } from '../scrollState';
@@ -878,6 +878,9 @@ const Planet = ({ position, scale = 1, mobile }: CelestialProps) => {
 
 const DISC_INNER = 1.45;
 const DISC_OUTER = 5.4;
+// Scratch for the photon ring's per-frame silhouette solve. Module scope because the maths
+// runs every frame and a Vector3 allocated in there is garbage sixty times a second.
+const PHOTON_EYE = new THREE.Vector3();
 
 // Two opposing beams along the disc axis, fired on click. Idle costs nothing:
 // the whole system is hidden between detonations.
@@ -1028,8 +1031,25 @@ const BlackHole = ({ position, scale = 1, mobile }: CelestialProps) => {
       }
     }
     if (photonRing.current && photonMaterial.current) {
+      const ring = photonRing.current;
       const flareScale = 1 + flare.current * 0.35;
-      photonRing.current.scale.set(flareScale, flareScale, 1);
+      // The ring rides the horizon's silhouette, which is not the horizon's outline: seen
+      // from d away, a unit sphere hides behind a tangent circle standing 1/d in front of
+      // its centre, of radius √(d²−1)/d. Far off the two are indistinguishable; on the
+      // flyby, when d closes on the radius, they are not, and a circle left on the centre
+      // slides off the black exactly as the camera goes by. Local space, so the parent's
+      // own scale is already divided out and the horizon really is the unit sphere.
+      if (ring.parent) {
+        const camLocal = ring.parent.worldToLocal(PHOTON_EYE.copy(camera.position));
+        const d = camLocal.length();
+        if (d > 1.001) {
+          ring.position.copy(camLocal).multiplyScalar(1 / (d * d));
+          ring.scale.setScalar((Math.sqrt(d * d - 1) / d) * flareScale);
+          // world-space target, and lookAt leaves roll to the group's up — world up out
+          // here, which is what keeps the two arcs on their own halves of the screen
+          ring.lookAt(camera.position);
+        }
+      }
       photonMaterial.current.opacity = Math.min(1, 0.9 + flare.current);
       // the lower arc keeps its distance from the upper one through the flare, or the ring
       // snaps flat the moment the hole is fed — which is when the tilt reads most
@@ -1078,56 +1098,6 @@ const BlackHole = ({ position, scale = 1, mobile }: CelestialProps) => {
             blending={THREE.AdditiveBlending}
           />
         </mesh>
-        {/* Photon ring, on the horizon's own outline; flares when the hole is fed.
-
-            Billboarded, so it is a flat circle facing the reader rather than a torus lying
-            in the disc's plane. A sphere's silhouette is a circle from every angle, so a
-            ring that is to sit *on that edge* has to ignore the 0.9 tilt the disc lives in —
-            inside that group it drew as an ellipse cutting across the black instead of
-            tracing its border. 1.02 to 1.06 against a horizon of 1: just clear of the
-            silhouette, no z-fighting with the sphere's tangent.
-
-            Still two arcs. The disc cannot occlude it — the ring sits at ~1.04 and the disc's
-            inner edge at DISC_INNER, so they never meet in 3D, they only overlap in
-            projection, and everything here is additively blended with no depth write, where
-            addition has no notion of in front. So the lower arc is simply dimmer and the
-            grains crossing it win. A cheat, and the only one available short of a depth
-            pre-pass for the disc.
-
-            Arcs are named for where they land on screen, which under a billboard is exactly
-            what thetaStart measures: 0 → π is the upper half, π → 2π the lower. */}
-        <Billboard>
-          <group ref={photonRing}>
-            {/* upper arc — clear of the grains, so it carries the ring at full strength */}
-            <mesh>
-              <ringGeometry args={[1.02, 1.06, 96, 1, 0, Math.PI]} />
-              <meshBasicMaterial
-                ref={photonMaterial}
-                color="#ffffff"
-                transparent
-                opacity={0.9}
-                toneMapped={false}
-                depthWrite={false}
-                side={THREE.DoubleSide}
-                blending={THREE.AdditiveBlending}
-              />
-            </mesh>
-            {/* lower arc — the disc's inner grains pile up over it, so it gives way */}
-            <mesh>
-              <ringGeometry args={[1.02, 1.06, 96, 1, Math.PI, Math.PI]} />
-              <meshBasicMaterial
-                ref={photonNearMaterial}
-                color="#ffffff"
-                transparent
-                opacity={0.3}
-                toneMapped={false}
-                depthWrite={false}
-                side={THREE.DoubleSide}
-                blending={THREE.AdditiveBlending}
-              />
-            </mesh>
-          </group>
-        </Billboard>
         {/* accretion disc */}
         <points geometry={discGeometry}>
           <shaderMaterial
@@ -1152,6 +1122,54 @@ const BlackHole = ({ position, scale = 1, mobile }: CelestialProps) => {
             blending={THREE.AdditiveBlending}
           />
         </points>
+      </group>
+      {/* Photon ring, sitting on the horizon's own silhouette.
+
+          Outside the disc's tilt on purpose, and driven per frame rather than billboarded.
+          A screen-aligned circle was the first attempt and it only holds while the hole is
+          far off and near the middle of the frame. Up close and off-axis a sphere does not
+          project to a circle at all: it projects to an ellipse, stretched away from the
+          centre of frame, and its silhouette is a tangent circle standing *in front of* the
+          centre, smaller than the sphere. A flat circle pinned to the sphere's middle drifts
+          off that edge exactly when the camera passes closest, which is when anyone is
+          looking.
+
+          So the tangent circle is computed instead. For a horizon of radius 1 whose centre
+          is d away, the silhouette lies at 1/d toward the camera with radius √(d²−1)/d, in
+          the plane normal to the line of sight. Set those three and the ring holds the edge
+          from any distance and any angle, including the flyby.
+
+          lookAt rather than a quaternion between vectors: it leaves the roll to the group's
+          own up, and out here that is world up, so the arcs keep their screen halves. */}
+      <group ref={photonRing}>
+        {/* upper arc — clear of the grains, so it carries the ring at full strength */}
+        <mesh>
+          <ringGeometry args={[1.02, 1.06, 96, 1, 0, Math.PI]} />
+          <meshBasicMaterial
+            ref={photonMaterial}
+            color="#ffffff"
+            transparent
+            opacity={0.9}
+            toneMapped={false}
+            depthWrite={false}
+            side={THREE.DoubleSide}
+            blending={THREE.AdditiveBlending}
+          />
+        </mesh>
+        {/* lower arc — the disc's inner grains pile up over it, so it gives way */}
+        <mesh>
+          <ringGeometry args={[1.02, 1.06, 96, 1, Math.PI, Math.PI]} />
+          <meshBasicMaterial
+            ref={photonNearMaterial}
+            color="#ffffff"
+            transparent
+            opacity={0.3}
+            toneMapped={false}
+            depthWrite={false}
+            side={THREE.DoubleSide}
+            blending={THREE.AdditiveBlending}
+          />
+        </mesh>
       </group>
     </group>
   );
