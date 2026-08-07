@@ -196,155 +196,6 @@ const WarpLines = () => {
   );
 };
 
-// The scenery that drifts past between the big astres. These used to be Platonic solids and
-// a torus knot — handsome, but they belonged to a maths poster, not to a sky. Each one is
-// now a small body you could name: a ringed world, an armillary sphere, a moon on its orbit,
-// a comet. Same neon-wireframe idiom, and still the small cousins of the scene's own
-// objects rather than repeats of them.
-type ShapeKind = 'ringedWorld' | 'armillary' | 'orbit' | 'comet';
-
-type NeonShapeProps = {
-  position: [number, number, number];
-  color: string;
-  kind: ShapeKind;
-  scale?: number;
-  spin?: number;
-};
-
-const COLOR_CYCLE = [NEON.violet, NEON.cyan, NEON.pink];
-
-// Each body is several meshes now, so the parts share one material: it is the thing the
-// hover animates, and one instance per mesh would mean animating three of them in step and
-// paying for three material set-ups per shape.
-const ShapeParts = ({ kind, material }: { kind: ShapeKind; material: THREE.Material }) => {
-  switch (kind) {
-    // a world with its ring, seen at a tilt — the scene's own planet, pocket-sized
-    case 'ringedWorld':
-      return (
-        <>
-          <mesh material={material}>
-            <sphereGeometry args={[0.6, 18, 12]} />
-          </mesh>
-          <mesh material={material} rotation={[1.28, 0.2, 0]}>
-            <torusGeometry args={[1.12, 0.05, 6, 56]} />
-          </mesh>
-        </>
-      );
-    // three hoops on crossed axes: an armillary sphere, the instrument astronomers used to
-    // model the sky before they could photograph it
-    case 'armillary':
-      return (
-        <>
-          <mesh material={material}>
-            <sphereGeometry args={[0.2, 12, 8]} />
-          </mesh>
-          <mesh material={material}>
-            <torusGeometry args={[1, 0.035, 6, 56]} />
-          </mesh>
-          <mesh material={material} rotation={[Math.PI / 2, 0, 0]}>
-            <torusGeometry args={[1, 0.035, 6, 56]} />
-          </mesh>
-          <mesh material={material} rotation={[0, 0, Math.PI / 2.4]}>
-            <torusGeometry args={[0.82, 0.035, 6, 56]} />
-          </mesh>
-        </>
-      );
-    // a moon caught on its path, the bead sitting on the ring rather than inside it
-    case 'orbit':
-      return (
-        <>
-          <mesh material={material}>
-            <sphereGeometry args={[0.34, 16, 12]} />
-          </mesh>
-          <mesh material={material} rotation={[1.1, 0.4, 0]}>
-            <torusGeometry args={[1.05, 0.03, 6, 64]} />
-          </mesh>
-          <mesh material={material} position={[0.92, 0.42, 0.3]}>
-            <sphereGeometry args={[0.14, 10, 8]} />
-          </mesh>
-        </>
-      );
-    // head and tail: the tail is a cone narrowing back to the head, so it reads as volume
-    // streaming away rather than as a triangle stuck on the side
-    case 'comet':
-      return (
-        <>
-          <mesh material={material}>
-            <sphereGeometry args={[0.34, 16, 12]} />
-          </mesh>
-          <mesh material={material} position={[-0.95, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
-            <coneGeometry args={[0.3, 1.7, 12, 3, true]} />
-          </mesh>
-        </>
-      );
-  }
-};
-
-const NeonShape = ({ position, color, kind, scale = 1, spin = 0.3 }: NeonShapeProps) => {
-  const group = useRef<THREE.Group>(null);
-  // extra rotation speed added on click, decays back to 0 each frame
-  const spinBoost = useRef(0);
-  const [hovered, setHovered] = useState(false);
-  const [currentColor, setCurrentColor] = useState(color);
-  useCursor(hovered);
-
-  const material = useMemo(
-    () =>
-      new THREE.MeshStandardMaterial({
-        color: '#0a0a18',
-        emissive: new THREE.Color(color),
-        emissiveIntensity: 1.6,
-        wireframe: true,
-      }),
-    [color],
-  );
-  useEffect(() => () => material.dispose(), [material]);
-  useEffect(() => {
-    material.emissive.set(currentColor);
-  }, [currentColor, material]);
-
-  useFrame((_, delta) => {
-    const node = group.current;
-    if (!node) return;
-    node.rotation.x += delta * (spin + spinBoost.current);
-    node.rotation.y += delta * (spin * 0.7 + spinBoost.current);
-    spinBoost.current = THREE.MathUtils.damp(spinBoost.current, 0, 1.2, delta);
-
-    const targetScale = hovered ? scale * 1.3 : scale;
-    node.scale.setScalar(THREE.MathUtils.damp(node.scale.x, targetScale, 6, delta));
-    material.emissiveIntensity = THREE.MathUtils.damp(
-      material.emissiveIntensity,
-      hovered ? 3 : 1.6,
-      6,
-      delta,
-    );
-  });
-
-  const cycleColor = () => {
-    spinBoost.current += 7;
-    const next = (COLOR_CYCLE.indexOf(currentColor) + 1) % COLOR_CYCLE.length;
-    setCurrentColor(COLOR_CYCLE[next]);
-  };
-
-  return (
-    <Float speed={1.5} rotationIntensity={0.4} floatIntensity={1.2}>
-      <group
-        ref={group}
-        position={position}
-        scale={scale}
-        onPointerOver={(e) => {
-          e.stopPropagation();
-          setHovered(true);
-        }}
-        onPointerOut={() => setHovered(false)}
-        onClick={cycleColor}
-      >
-        <ShapeParts kind={kind} material={material} />
-      </group>
-    </Float>
-  );
-};
-
 // Deterministic pseudo-random in [0,1) so the scene is identical on every visit.
 const rand01 = (i: number, salt: number) => {
   const x = Math.sin(i * 127.1 + salt * 311.7) * 43758.5453;
@@ -1025,8 +876,15 @@ const Planet = ({ position, scale = 1, mobile }: CelestialProps) => {
 // the limb turning toward the camera. Click: the disc collapses inward and the
 // hole answers with relativistic jets.
 
-const DISC_INNER = 1.45;
+// Almost on the horizon. A real disc stops at the ISCO, three radii out, and at 1.45 that
+// gap was the most legible thing about the astre — a ring of empty scene between the black
+// and the grains, which read as two objects rather than one. 1.12 leaves just enough for the
+// photon ring (outer edge ~1.035) to sit in.
+const DISC_INNER = 1.12;
 const DISC_OUTER = 5.4;
+// Scratch for the photon ring's per-frame silhouette solve. Module scope because the maths
+// runs every frame and a Vector3 allocated in there is garbage sixty times a second.
+const PHOTON_EYE = new THREE.Vector3();
 
 // Two opposing beams along the disc axis, fired on click. Idle costs nothing:
 // the whole system is hidden between detonations.
@@ -1095,9 +953,9 @@ const BlackHole = ({ position, scale = 1, mobile }: CelestialProps) => {
   const discMaterial = useRef<THREE.ShaderMaterial>(null);
   const jets = useRef<THREE.Points>(null);
   const jetMaterial = useRef<THREE.ShaderMaterial>(null);
-  const photonRing = useRef<THREE.Mesh>(null);
+  const photonRing = useRef<THREE.Group>(null);
   const photonMaterial = useRef<THREE.MeshBasicMaterial>(null);
-  const lens = useRef<THREE.ShaderMaterial>(null);
+  const photonNearMaterial = useRef<THREE.MeshBasicMaterial>(null);
   const discClock = useRef(0);
   const discBoost = useRef(0);
   // -1 = idle, otherwise the collapse's progress
@@ -1142,15 +1000,6 @@ const BlackHole = ({ position, scale = 1, mobile }: CelestialProps) => {
     [],
   );
   const jetUniforms = useMemo(() => ({ uJet: { value: 0 }, uScale: { value: 600 } }), []);
-  const lensUniforms = useMemo(
-    () => ({
-      uColor: { value: new THREE.Color('#c4b5fd') },
-      uIntensity: { value: 1 },
-      uFog: { value: fogRange() },
-    }),
-    [],
-  );
-
   useFrame(({ camera, size, viewport }, delta) => {
     discBoost.current = THREE.MathUtils.damp(discBoost.current, 0, 1.3, delta);
     flare.current = THREE.MathUtils.damp(flare.current, 0, 2.6, delta);
@@ -1176,11 +1025,35 @@ const BlackHole = ({ position, scale = 1, mobile }: CelestialProps) => {
       }
     }
     if (photonRing.current && photonMaterial.current) {
-      const flareScale = 1 + flare.current * 0.35;
-      photonRing.current.scale.set(flareScale, flareScale, 1);
-      photonMaterial.current.opacity = Math.min(1, 0.85 + flare.current);
+      const ring = photonRing.current;
+      const flareScale = 1 + flare.current * 0.5;
+      // The ring rides the horizon's silhouette, which is not the horizon's outline: seen
+      // from d away, a unit sphere hides behind a tangent circle standing 1/d in front of
+      // its centre, of radius √(d²−1)/d. Far off the two are indistinguishable; on the
+      // flyby, when d closes on the radius, they are not, and a circle left on the centre
+      // slides off the black exactly as the camera goes by. Local space, so the parent's
+      // own scale is already divided out and the horizon really is the unit sphere.
+      if (ring.parent) {
+        const camLocal = ring.parent.worldToLocal(PHOTON_EYE.copy(camera.position));
+        const d = camLocal.length();
+        if (d > 1.001) {
+          ring.position.copy(camLocal).multiplyScalar(1 / (d * d));
+          ring.scale.setScalar((Math.sqrt(d * d - 1) / d) * flareScale);
+          // world-space target, and lookAt leaves roll to the group's up — world up out
+          // here, which is what keeps the two arcs on their own halves of the screen
+          ring.lookAt(camera.position);
+        }
+      }
+      // The upper arc is already white, additive and through bloom, so it is clipped at rest
+      // and brightening it further does nothing anyone can see. The tap has to read somewhere
+      // else: the swell above, and the lower arc below, which sits at 0.3 and has the whole
+      // range to itself. It comes up to full, so the ring closes into one bright circle for
+      // as long as the flare lasts and then settles back to being lit on one side only.
+      photonMaterial.current.opacity = Math.min(1, 0.9 + flare.current);
+      if (photonNearMaterial.current) {
+        photonNearMaterial.current.opacity = Math.min(1, 0.3 + flare.current * 0.95);
+      }
     }
-    if (lens.current) lens.current.uniforms.uIntensity.value = 0.7 + flare.current * 3;
   });
 
   const detonate = (origin: { x: number; y: number }) => {
@@ -1207,33 +1080,6 @@ const BlackHole = ({ position, scale = 1, mobile }: CelestialProps) => {
           <sphereGeometry args={[1, 32, 32]} />
           <meshBasicMaterial color="#000000" />
         </mesh>
-        {/* lensing halo — light bent around the far side of the horizon */}
-        <mesh scale={1.45}>
-          <sphereGeometry args={[1, 32, 32]} />
-          <shaderMaterial
-            ref={lens}
-            uniforms={lensUniforms}
-            vertexShader={GLOW_VERT}
-            fragmentShader={ATMOSPHERE_FRAG}
-            transparent
-            depthWrite={false}
-            side={THREE.BackSide}
-            blending={THREE.AdditiveBlending}
-          />
-        </mesh>
-        {/* photon ring hugging the horizon; flares when the hole is fed */}
-        <mesh ref={photonRing}>
-          <torusGeometry args={[1.14, 0.022, 12, 96]} />
-          <meshBasicMaterial
-            ref={photonMaterial}
-            color="#ffffff"
-            transparent
-            opacity={0.85}
-            toneMapped={false}
-            depthWrite={false}
-            blending={THREE.AdditiveBlending}
-          />
-        </mesh>
         {/* accretion disc */}
         <points geometry={discGeometry}>
           <shaderMaterial
@@ -1258,6 +1104,60 @@ const BlackHole = ({ position, scale = 1, mobile }: CelestialProps) => {
             blending={THREE.AdditiveBlending}
           />
         </points>
+      </group>
+      {/* Photon ring, sitting on the horizon's own silhouette.
+
+          Outside the disc's tilt on purpose, and driven per frame rather than billboarded.
+          A screen-aligned circle was the first attempt and it only holds while the hole is
+          far off and near the middle of the frame. Up close and off-axis a sphere does not
+          project to a circle at all: it projects to an ellipse, stretched away from the
+          centre of frame, and its silhouette is a tangent circle standing *in front of* the
+          centre, smaller than the sphere. A flat circle pinned to the sphere's middle drifts
+          off that edge exactly when the camera passes closest, which is when anyone is
+          looking.
+
+          So the tangent circle is computed instead. For a horizon of radius 1 whose centre
+          is d away, the silhouette lies at 1/d toward the camera with radius √(d²−1)/d, in
+          the plane normal to the line of sight. Set those three and the ring holds the edge
+          from any distance and any angle, including the flyby.
+
+          lookAt rather than a quaternion between vectors: it leaves the roll to the group's
+          own up, and out here that is world up, so the arcs keep their screen halves.
+
+          The band runs 0.99 to 1.035, so its inner edge is *inside* the silhouette rather
+          than clear of it, and the horizon trims it: the sphere is opaque and writes depth,
+          the ring is additive and does not, so whatever falls behind the black is discarded
+          and the white starts exactly on the edge. Held off it — the band used to open at
+          1.02 — and a hairline of scene showed between the two. */}
+      <group ref={photonRing}>
+        {/* upper arc — clear of the grains, so it carries the ring at full strength */}
+        <mesh>
+          <ringGeometry args={[0.99, 1.035, 96, 1, 0, Math.PI]} />
+          <meshBasicMaterial
+            ref={photonMaterial}
+            color="#ffffff"
+            transparent
+            opacity={0.9}
+            toneMapped={false}
+            depthWrite={false}
+            side={THREE.DoubleSide}
+            blending={THREE.AdditiveBlending}
+          />
+        </mesh>
+        {/* lower arc — the disc's inner grains pile up over it, so it gives way */}
+        <mesh>
+          <ringGeometry args={[0.99, 1.035, 96, 1, Math.PI, Math.PI]} />
+          <meshBasicMaterial
+            ref={photonNearMaterial}
+            color="#ffffff"
+            transparent
+            opacity={0.3}
+            toneMapped={false}
+            depthWrite={false}
+            side={THREE.DoubleSide}
+            blending={THREE.AdditiveBlending}
+          />
+        </mesh>
       </group>
     </group>
   );
@@ -1991,33 +1891,6 @@ const Constellation = ({ label, href, salt, outline, inner = [], extraStars = []
   );
 };
 
-// One cluster of shapes per section, placed deeper and deeper along -Z.
-const CLUSTERS: NeonShapeProps[][] = [
-  // 0 — hero (kept wide so they never overlap the centered title). The armillary opens the
-  // journey: of the four it is the one that reads as "astronomy" rather than "a planet",
-  // which is the right note before the corridor has shown anything of its own.
-  // Pushed wider than the solids they replace: a hooped sphere and a ringed world are two
-  // to three times the silhouette of an icosahedron at the same scale, and at the old x the
-  // ring cut straight through "Bonvin".
-  [
-    { position: [-8.5, 3.2, -5], color: NEON.violet, kind: 'armillary', scale: 1.3 },
-    { position: [9.5, 3.4, -7], color: NEON.cyan, kind: 'ringedWorld', scale: 1.1 },
-    { position: [-7.5, 6, -11], color: NEON.pink, kind: 'comet', scale: 0.85 },
-  ],
-  // 1 — à propos (planet on the right, so a moon on the left answers it)
-  [{ position: [-4, 4.5, -21], color: NEON.pink, kind: 'orbit', scale: 0.95 }],
-  // 2 — expérience (black hole on the left)
-  [{ position: [7, 5.5, -36], color: NEON.cyan, kind: 'armillary', scale: 0.9 }],
-  // 3 — projets (pulsar on the right)
-  [{ position: [-4, 4.5, -49], color: NEON.violet, kind: 'ringedWorld', scale: 0.95 }],
-  // 4 — contact (kept away from the centered text)
-  [
-    { position: [-7.5, 2.5, -60], color: NEON.cyan, kind: 'orbit', scale: 1.15 },
-    { position: [-4.5, 1, -62], color: NEON.pink, kind: 'comet', scale: 0.9 },
-    { position: [6.5, 3, -63], color: NEON.violet, kind: 'armillary', scale: 0.9 },
-  ],
-];
-
 // Ephemeral shooting star launched by clicking on empty space.
 type CometShot = { id: number; start: THREE.Vector3; dir: THREE.Vector3; color: string };
 
@@ -2072,14 +1945,37 @@ export const PortfolioScene = () => {
     const ndcX = (event.clientX / window.innerWidth) * 2 - 1;
     const ndcY = -(event.clientY / window.innerHeight) * 2 + 1;
     const target = new THREE.Vector3(ndcX, ndcY, 0.5).unproject(camera);
-    const dir = target.sub(camera.position).normalize();
-    const start = camera.position.clone().addScaledVector(dir, 6);
-    // each comet shoots off in a random direction from the click point,
-    // with a gentle deviation so it never veers too far off
+    // where it starts is still the click: the ray to that point is what places the head out
+    // in the scene, under the finger
+    const ray = target.sub(camera.position).normalize();
+    const start = camera.position.clone().addScaledVector(ray, 6);
+    // Where it goes is the ray, plus a little. Which is worth spelling out, because the
+    // obvious reading of "straight through the screen" — send it down the camera's own axis
+    // — is the one thing that does not look like that. Parallel lines converge on the
+    // vanishing point, so a shot running dead down the axis projects as sliding toward the
+    // middle of the frame: from the right edge it is a third of the way in within a second.
+    // Every comet looked pulled to the centre.
+    //
+    // The ray is the neutral line, not the axis. A shot along it holds its place in frame
+    // exactly while it recedes, which is what going straight away from the reader actually
+    // looks like. Its world angle is wide — 33° at a corner — but that angle is never seen,
+    // only the screen track is. What made the first version fling comets out of frame was
+    // the random kick of up to 0.4 sitting on top of it, not the ray.
+    const dir = ray.clone();
+    // Then a touch outward on top, so the track opens away from the middle rather than
+    // merely holding still, and opens more the further out the click was — the term carries
+    // the click's own sign and magnitude, so the centre of the frame gets nothing. 0.06 is
+    // about 8% of drift by the time it is gone; below that it does not read at all.
+    const OUTWARD = 0.06;
+    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+    const up = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
+    dir.addScaledVector(right, ndcX * OUTWARD).addScaledVector(up, ndcY * OUTWARD);
+    // Enough scatter that two shots are never the same line, not enough to read as an angle:
+    // 0.09 off a unit vector is about 5°.
     const angle = Math.random() * Math.PI * 2;
-    const strength = 0.15 + Math.random() * 0.25;
-    dir.x += Math.cos(angle) * strength;
-    dir.y += Math.sin(angle) * strength * 0.6;
+    const spread = 0.04 + Math.random() * 0.05;
+    dir.x += Math.cos(angle) * spread;
+    dir.y += Math.sin(angle) * spread * 0.6;
     dir.normalize();
     const id = nextId.current++;
     setShots((prev) => [...prev.slice(-3), { id, start, dir, color: COMET_COLORS[id % 3] }]);
@@ -2102,17 +1998,6 @@ export const PortfolioScene = () => {
       <CameraRig />
       <TrackHints portrait={portrait} />
       <FogDrive />
-
-      {/* the wireframe clutter is desktop-only: on a phone it crowds a frame that is
-          already carrying an astre, the section title and a panel of body text */}
-      {!portrait &&
-        CLUSTERS.flat().map((shape, index) => (
-          <NeonShape
-            key={index}
-            {...shape}
-            position={[shape.position[0] * xFactor, shape.position[1], shape.position[2]]}
-          />
-        ))}
 
       {/* Same fixed world positions on both: the astres sit on the corridor from the
           first frame and the camera drifts past them, so each one is on screen — far,
