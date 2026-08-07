@@ -954,13 +954,10 @@ const BlackHole = ({ position, scale = 1, mobile }: CelestialProps) => {
   const jets = useRef<THREE.Points>(null);
   const jetMaterial = useRef<THREE.ShaderMaterial>(null);
   const photonRing = useRef<THREE.Group>(null);
-  const photonMaterial = useRef<THREE.MeshBasicMaterial>(null);
-  const photonNearMaterial = useRef<THREE.MeshBasicMaterial>(null);
   const discClock = useRef(0);
   const discBoost = useRef(0);
   // -1 = idle, otherwise the collapse's progress
   const collapse = useRef(-1);
-  const flare = useRef(0);
   const [hovered, setHovered] = useState(false);
   const flyby = useFlyby(position[2], mobile);
   useCursor(hovered);
@@ -1002,7 +999,6 @@ const BlackHole = ({ position, scale = 1, mobile }: CelestialProps) => {
   const jetUniforms = useMemo(() => ({ uJet: { value: 0 }, uScale: { value: 600 } }), []);
   useFrame(({ camera, size, viewport }, delta) => {
     discBoost.current = THREE.MathUtils.damp(discBoost.current, 0, 1.3, delta);
-    flare.current = THREE.MathUtils.damp(flare.current, 0, 2.6, delta);
     discClock.current += delta * (1 + discBoost.current);
 
     if (collapse.current >= 0) {
@@ -1024,9 +1020,10 @@ const BlackHole = ({ position, scale = 1, mobile }: CelestialProps) => {
         jetMaterial.current.uniforms.uScale.value = pixels;
       }
     }
-    if (photonRing.current && photonMaterial.current) {
+    // Deliberately untouched by the click: the collapse plays out in the disc and the jets,
+    // and the ring is the one fixed mark the eye can hold on to while they do.
+    if (photonRing.current) {
       const ring = photonRing.current;
-      const flareScale = 1 + flare.current * 0.5;
       // The ring rides the horizon's silhouette, which is not the horizon's outline: seen
       // from d away, a unit sphere hides behind a tangent circle standing 1/d in front of
       // its centre, of radius √(d²−1)/d. Far off the two are indistinguishable; on the
@@ -1038,27 +1035,17 @@ const BlackHole = ({ position, scale = 1, mobile }: CelestialProps) => {
         const d = camLocal.length();
         if (d > 1.001) {
           ring.position.copy(camLocal).multiplyScalar(1 / (d * d));
-          ring.scale.setScalar((Math.sqrt(d * d - 1) / d) * flareScale);
+          ring.scale.setScalar(Math.sqrt(d * d - 1) / d);
           // world-space target, and lookAt leaves roll to the group's up — world up out
           // here, which is what keeps the two arcs on their own halves of the screen
           ring.lookAt(camera.position);
         }
-      }
-      // The upper arc is already white, additive and through bloom, so it is clipped at rest
-      // and brightening it further does nothing anyone can see. The tap has to read somewhere
-      // else: the swell above, and the lower arc below, which sits at 0.3 and has the whole
-      // range to itself. It comes up to full, so the ring closes into one bright circle for
-      // as long as the flare lasts and then settles back to being lit on one side only.
-      photonMaterial.current.opacity = Math.min(1, 0.9 + flare.current);
-      if (photonNearMaterial.current) {
-        photonNearMaterial.current.opacity = Math.min(1, 0.3 + flare.current * 0.95);
       }
     }
   });
 
   const detonate = (origin: { x: number; y: number }) => {
     collapse.current = 0;
-    flare.current = 1;
     discBoost.current += 7;
     answerTap('blackHole', position, origin);
   };
@@ -1134,7 +1121,6 @@ const BlackHole = ({ position, scale = 1, mobile }: CelestialProps) => {
         <mesh>
           <ringGeometry args={[0.99, 1.035, 96, 1, 0, Math.PI]} />
           <meshBasicMaterial
-            ref={photonMaterial}
             color="#ffffff"
             transparent
             opacity={0.9}
@@ -1148,7 +1134,6 @@ const BlackHole = ({ position, scale = 1, mobile }: CelestialProps) => {
         <mesh>
           <ringGeometry args={[0.99, 1.035, 96, 1, Math.PI, Math.PI]} />
           <meshBasicMaterial
-            ref={photonNearMaterial}
             color="#ffffff"
             transparent
             opacity={0.3}
