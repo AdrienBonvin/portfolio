@@ -6,6 +6,7 @@ import { AstreHint } from './AstreHint';
 import { Ignite, Settle } from './Ignite';
 import { useReveal } from './reveal';
 import { LangToggle } from './LangToggle';
+import { EmailToast } from './EmailToast';
 import { journeyProgress, scrollState } from './scrollState';
 import { useT, LINKS } from './i18n';
 import type { AstreKey } from './scene/astres';
@@ -199,6 +200,7 @@ export const App = () => {
       <MiniMap />
       <AstreHint />
       <LangToggle />
+      <EmailToast />
 
       {/* pointer-events-none lets hovers/clicks reach the 3D canvas; cards re-enable them */}
       <main className="pointer-events-none relative z-10">
