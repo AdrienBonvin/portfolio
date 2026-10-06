@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { isTouchDevice, scrollState } from '../scrollState';
 import { useIsMobile } from '../useIsMobile';
 import { LINKS } from '../i18n';
+import { contactByEmail } from '../EmailToast';
 import {
   astreHalo,
   astrePosition,
@@ -1806,7 +1807,7 @@ const Constellation = ({ label, href, salt, outline, inner = [], extraStars = []
           setHovered(true);
           return;
         }
-        if (href.startsWith('mailto:')) window.location.href = href;
+        if (href.startsWith('mailto:')) contactByEmail();
         else window.open(href, '_blank', 'noopener');
       }}
     >

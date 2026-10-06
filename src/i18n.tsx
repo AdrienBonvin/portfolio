@@ -27,7 +27,7 @@ export type Dictionary = {
   about: { title: string; before: string; youtube: string; after: string };
   experience: { title: string; entries: Entry[] };
   projects: { title: string; items: Project[] };
-  contact: { title: string; text: string; hint: string };
+  contact: { title: string; text: string; hint: string; copied: string };
   minimap: string[];
   // the touch affordance, naming whichever astre is currently going past
   scene: { tap: string; planet: string; blackHole: string; pulsar: string };
@@ -95,6 +95,7 @@ const fr: Dictionary = {
     title: 'Contact',
     text: 'Envie d’échanger ?',
     hint: '✨ Attrapez une constellation',
+    copied: 'Adresse copiée :',
   },
   minimap: ['Départ', 'À propos', 'Expérience', 'Projets', 'Contact'],
   scene: {
@@ -167,6 +168,7 @@ const en: Dictionary = {
     title: 'Contact',
     text: 'Let’s talk?',
     hint: '✨ Catch a constellation',
+    copied: 'Address copied:',
   },
   minimap: ['Start', 'About', 'Experience', 'Projects', 'Contact'],
   scene: {
